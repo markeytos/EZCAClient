@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33103.184
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EZCAClient", "EZCAClient\EZCAClient.csproj", "{0709047D-0D2A-4729-A83D-FF41EEFB7AF6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0709047D-0D2A-4729-A83D-FF41EEFB7AF6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0709047D-0D2A-4729-A83D-FF41EEFB7AF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0709047D-0D2A-4729-A83D-FF41EEFB7AF6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0709047D-0D2A-4729-A83D-FF41EEFB7AF6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CFDD4BBC-72A8-4830-9675-8A145B3ED93E}
+	EndGlobalSection
+EndGlobal
