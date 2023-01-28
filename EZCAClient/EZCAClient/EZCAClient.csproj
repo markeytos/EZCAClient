@@ -4,6 +4,42 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>EZCAClient</Title>
+    <Authors>Keytos Security</Authors>
+    <Description>EZCA client package to easily create automation around your X509 certificate lifecycle</Description>
+    <Copyright>Keytos Security</Copyright>
+    <PackageProjectUrl>https://www.keytos.io/AZURE-PKI.html</PackageProjectUrl>
+    <PackageIcon>KeytosK.png</PackageIcon>
+    <RepositoryUrl>https://github.com/markeytos/EZCAClient</RepositoryUrl>
+    <PackageTags>X509Certificate;Certificate Authority;EZCA;Keytos;</PackageTags>
+    <PackageReleaseNotes>First Release</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\..\..\Desktop\Logos\keytosLogoLong\KeytosK.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.8.1" />
+    <PackageReference Include="jose-jwt" Version="4.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
+    <PackageReference Include="Polly" Version="7.2.3" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.26.0" />
+  </ItemGroup>
 
 </Project>

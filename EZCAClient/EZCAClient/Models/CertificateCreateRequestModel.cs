@@ -10,7 +10,7 @@ namespace EZCAClient.Models;
 public class CertificateCreateRequestModel
 {
     public CertificateCreateRequestModel(AvailableCAModel ca, string subjectName,
-        List<string> subjectAltNames, string csr, int lifetime)
+        List<string> subjectAltNames, string csr, int lifetime, string location)
     {
         SubjectName = subjectName;
         SubjectAltNames = subjectAltNames;
@@ -26,7 +26,7 @@ public class CertificateCreateRequestModel
     public List<string> SubjectAltNames { get; set; } = new List<string>();
     [JsonPropertyName("CAID")]
     public string? CAID { get; set; }
-    [JsonPropertyName("TenantID")]
+    [JsonPropertyName("TemplateID")]
     public string? TemplateID { get; set; }
     [JsonPropertyName("CSR")]
     public string CSR { get; set; } = string.Empty;
