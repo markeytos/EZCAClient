@@ -76,14 +76,16 @@ public interface IEZCAClient
 }
 
 
-public class EZCAClient : IEZCAClient
+public class EZCAClientClass : IEZCAClient
 {
     private readonly HttpClientService _httpClient;
     private readonly string _url;
     private AccessToken _token;
     private readonly TokenCredential _azureTokenCredential;
-    public EZCAClient(HttpClient httpClient, TokenCredential? azureTokenCredential = null, ILogger? logger = null,
-        string baseUrl = "https://portal.ezca.io/")
+
+    public EZCAClientClass(HttpClient httpClient, ILogger? logger = null,
+        string baseUrl = "https://portal.ezca.io/",
+        TokenCredential? azureTokenCredential = null)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
@@ -103,7 +105,7 @@ public class EZCAClient : IEZCAClient
             _azureTokenCredential = azureTokenCredential;
         }
         _httpClient = new(httpClient, logger);
-        _url = baseUrl.TrimEnd('/');
+        _url = baseUrl.TrimEnd('/').Replace("http://", "https://");
     }
 
     public async Task RevokeCertificateAsync(X509Certificate2 cert)
@@ -334,6 +336,10 @@ public class EZCAClient : IEZCAClient
         TokenRequestContext authContext = new(
             new[] { "https://management.core.windows.net/.default" });
         _token = await _azureTokenCredential.GetTokenAsync(authContext, default);
+        if(string.IsNullOrWhiteSpace(_token.Token))
+        {
+            throw new AuthenticationFailedException("Error getting token");
+        }
     }
     
     private static TokenModel CreateRSAJWTToken(X509Certificate2 clientCertificate)

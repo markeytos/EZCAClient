@@ -18,6 +18,7 @@ public class CertificateCreateRequestModel
         TemplateID = ca.TemplateID;
         CSR = csr;
         ValidityInDays = lifetime;
+        SelectedLocation = location;
     }
 
     [JsonPropertyName("SubjectName")]

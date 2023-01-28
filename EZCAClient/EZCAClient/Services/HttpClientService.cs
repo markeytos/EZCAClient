@@ -88,7 +88,6 @@ public class HttpClientService : IHttpClientService
     private async Task<HttpResponseMessage> CreateAndSendAsync(string url,
             string? jsonPayload, string? token, HttpMethod method)
     {
-        _httpClient.DefaultRequestHeaders.Clear();
         HttpRequestMessage requestMessage = new(method, url);
         if (!string.IsNullOrWhiteSpace(jsonPayload))
         {

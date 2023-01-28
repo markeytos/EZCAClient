@@ -4,6 +4,6 @@
 ## Getting Started
 Fist add the NuGet package to your project by running 
 ```
-dotnet add package EZCAClient --version 1.0.0
+dotnet add package EZCAClient 
 ```
 Then use the sample project in this repository to learn how you use each of the functions. 

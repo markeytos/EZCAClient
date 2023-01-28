@@ -20,7 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="EZCAClient" Version="1.0.0" />
+      <PackageReference Include="EZCAClient" Version="1.0.1" />
     </ItemGroup>
 
 </Project>

@@ -10,7 +10,7 @@ Console.WriteLine("Welcome to the EZCAClient Sample");
 
 //create a new EZCAClient, you can also pass an Azure token credential if you want to use specific credentials 
 //as well as an ILogger to log exceptions that are caught by our HTTP client
-IEZCAClient ezcaClient = new EZCAClient.Managers.EZCAClient(new HttpClient());
+IEZCAClient ezcaClient = new EZCAClientClass(new HttpClient());
 
 try
 {
