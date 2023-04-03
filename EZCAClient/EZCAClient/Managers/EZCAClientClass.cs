@@ -63,6 +63,24 @@ public interface IEZCAClient
         int certificateValidityDays);
 
     /// <summary>
+    /// Creates a new Domain Controller certificate given a valid CSR (Only Available for SCEP templates).
+    /// </summary>
+    /// <param name="ca">Issuing CA</param>
+    /// <param name="subjectName">The certificate's subject name</param>
+    /// <param name="dnsName">The domain controller's DNS name</param>
+    /// <param name="certificateValidityDays">the duration in days for the new certificate</param>
+    /// <param name="csr">the created CSR</param>
+    /// <param name="dcGuid">The domain controller's GUID (only required if SMTP replication is used)</param>
+    /// <param name="ekus">The EKUs requested for the Certificate</param>
+    /// <returns>The created <see cref="X509Certificate2"/>.</returns>
+    /// <exception cref="ApplicationException">Error creating certificate</exception>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<X509Certificate2?> RequestDCCertificateAsync(
+        AvailableCAModel ca, string csr, string subjectName,
+        string dnsName, int certificateValidityDays,
+        List<string> ekus, string dcGuid = "");
+
+    /// <summary>
     /// Registers a new domain in EZCA with its appropriate owners
     /// </summary>
     /// <param name="ca">Issuing CA</param>
@@ -264,7 +282,7 @@ public class EZCAClientClass : IEZCAClient
         }
         await GetTokenAsync();
         CertificateCreateRequestModel request = new(ca, subjectName,
-            new(), csr, certificateValidityDays, "Import CSR");
+            new(), csr, certificateValidityDays, EZCAConstants.IMPORTCSR);
         APIResultModel response = await
             _httpClient.CallGenericAsync($"{_url}/api/CA/RequestSSLCertificate",
                 JsonSerializer.Serialize(request), _token.Token, HttpMethod.Post);
@@ -316,6 +334,64 @@ public class EZCAClientClass : IEZCAClient
             APIResultModel result = JsonSerializer.Deserialize
                 <APIResultModel>(response.Message) ?? new (false, "Error reading server response");
             return result;
+        }
+        throw new HttpRequestException(response.Message);
+    }
+
+    public async Task<X509Certificate2?> RequestDCCertificateAsync(
+        AvailableCAModel ca, string csr, string subjectName, 
+        string dnsName, int certificateValidityDays, 
+        List<string> ekus, string dcGuid = "")
+    {
+        if (ca == null)
+        {
+            throw new ArgumentNullException(nameof(ca));
+        }
+        if (string.IsNullOrWhiteSpace(csr))
+        {
+            throw new ArgumentNullException(nameof(csr));
+        }
+        if (string.IsNullOrWhiteSpace(subjectName))
+        {
+            throw new ArgumentNullException(nameof(subjectName));
+        }
+        if (string.IsNullOrWhiteSpace(dnsName))
+        {
+            throw new ArgumentNullException(nameof(dnsName));
+        }
+        if(certificateValidityDays < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(certificateValidityDays));
+        }
+
+        if (ekus is null || !ekus.Any())
+        {
+            throw new ArgumentNullException(nameof(ekus));
+        }
+
+        if (!subjectName.StartsWith("CN=", StringComparison.OrdinalIgnoreCase) &&
+            !subjectName.StartsWith("CN =", StringComparison.OrdinalIgnoreCase))
+        {
+            subjectName = "CN=" + subjectName;
+        }
+        await GetTokenAsync();
+        CertificateCreateRequestModel request = new(ca, subjectName,
+            new() { dnsName }, csr, certificateValidityDays, 
+            EZCAConstants.DomainController, ekus, dcGuid);
+        APIResultModel response = await
+            _httpClient.CallGenericAsync($"{_url}/api/CA/RequestDCCertificate",
+                JsonSerializer.Serialize(request), _token.Token, HttpMethod.Post);
+        if (response.Success)
+        {
+            APIResultModel result = JsonSerializer.Deserialize
+                <APIResultModel>(response.Message) ?? new(false, "Error reading server response");
+            if (result.Success)
+            {
+                X509Certificate2 certificate = CryptoStaticService.ImportCertFromPEMString(
+                    result.Message);
+                return certificate;
+            }
+            throw new ApplicationException(result.Message);
         }
         throw new HttpRequestException(response.Message);
     }
