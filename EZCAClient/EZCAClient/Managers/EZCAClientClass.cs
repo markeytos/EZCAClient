@@ -99,7 +99,7 @@ public class EZCAClientClass : IEZCAClient
     private readonly HttpClientService _httpClient;
     private readonly string _url;
     private AccessToken _token;
-    private readonly TokenCredential _azureTokenCredential;
+    private readonly TokenCredential? _azureTokenCredential;
 
     public EZCAClientClass(HttpClient httpClient, ILogger? logger = null,
         string baseUrl = "https://portal.ezca.io/",
@@ -113,15 +113,7 @@ public class EZCAClientClass : IEZCAClient
         {
             throw new ArgumentNullException(nameof(httpClient));
         }
-        if (azureTokenCredential == null)
-        {
-            Console.WriteLine("No token credential provided, creating default credential");
-            _azureTokenCredential = new DefaultAzureCredential(includeInteractiveCredentials: true);
-        }
-        else
-        {
-            _azureTokenCredential = azureTokenCredential;
-        }
+        _azureTokenCredential = azureTokenCredential;
         _httpClient = new(httpClient, logger);
         _url = baseUrl.TrimEnd('/').Replace("http://", "https://");
     }
@@ -411,6 +403,10 @@ public class EZCAClientClass : IEZCAClient
     {
         TokenRequestContext authContext = new(
             new[] { "https://management.core.windows.net/.default" });
+        if(_azureTokenCredential == null)
+        {
+            throw new ArgumentNullException(nameof(_azureTokenCredential));
+        }
         _token = await _azureTokenCredential.GetTokenAsync(authContext, default);
         if(string.IsNullOrWhiteSpace(_token.Token))
         {
