@@ -20,7 +20,11 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="EZCAClient" Version="1.0.1" />
+      <ProjectReference Include="..\EZCAClient\EZCAClient.csproj" />
     </ItemGroup>
+
+    <!--<ItemGroup>-->
+      <!--<PackageReference Include="EZCAClient" Version="1.0.3" />-->
+    <!--</ItemGroup>-->
 
 </Project>

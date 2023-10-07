@@ -29,7 +29,18 @@ try
     //This will use our logged in account, for production we recommend passing the list of Owners and Approvers for the domain.
     //NOTE: Owners Must be groups or human accounts.
     Console.WriteLine($"Registering domain");
-    APIResultModel registrationResult = await ezcaClient.RegisterDomainAsync(selectedCA, domain);
+    // these emails will get notifications about the domain and certificates 
+    // they are optional and can be null
+    List<string> extraEmails = new () 
+    {
+        "security@keytos.io"
+    };
+    APIResultModel registrationResult = await ezcaClient.RegisterDomainAsync(selectedCA, domain, 
+        null, //owners, leaving null so it uses current user.
+        null, //certificate administrators (who can request and revoke certificates)
+              //, leaving null so it uses current user.
+        null, //requesters only, these accounts can only request certificates
+        extraEmails);
     if (!registrationResult.Success)
     {
         Console.WriteLine($"Could not register new device in EZCA {registrationResult.Message}");
