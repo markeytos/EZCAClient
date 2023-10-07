@@ -86,11 +86,16 @@ public interface IEZCAClient
     /// <param name="ca">Issuing CA</param>
     /// <param name="domain">Domain name you want to register in EZCA</param>
     /// <param name="owners">Approved Owners for requesting certificate (If left empty current user will be used)</param>
-    /// <param name="requesters">Approved requesters for requesting certificate (If left empty current user will be used)</param>
+    /// <param name="certificateAdministrators">Approved requesters for requesting certificate (If left empty current user will be used)</param>
+    /// <param name="requestersOnly">Approved certificate managers (they can issue or revoke certificates)</param>
+    /// <param name="notificationEmails">Extra email list that will get domain and certificate related alerts</param>
     /// <returns><see cref="APIResultModel"/> Indicating if the operation was successful or not.</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
-    Task<APIResultModel> RegisterDomainAsync(AvailableCAModel ca, string domain, List<AADObjectModel>? owners = null,
-        List<AADObjectModel>? requesters = null);
+    Task<APIResultModel> RegisterDomainAsync(AvailableCAModel ca, string domain,
+        List<AADObjectModel>? owners = null,
+        List<AADObjectModel>? certificateAdministrators = null,
+        List<AADObjectModel>? requestersOnly = null,
+        List<string>? notificationEmails = null);
 }
 
 
@@ -113,7 +118,15 @@ public class EZCAClientClass : IEZCAClient
         {
             throw new ArgumentNullException(nameof(httpClient));
         }
-        _azureTokenCredential = azureTokenCredential;
+
+        if (azureTokenCredential == null)
+        {
+            _azureTokenCredential = new DefaultAzureCredential();
+        }
+        else
+        {
+            _azureTokenCredential = azureTokenCredential;
+        }
         _httpClient = new(httpClient, logger);
         _url = baseUrl.TrimEnd('/').Replace("http://", "https://");
     }
@@ -292,8 +305,11 @@ public class EZCAClientClass : IEZCAClient
         throw new HttpRequestException(response.Message);
     }
     
-    public async Task<APIResultModel> RegisterDomainAsync(AvailableCAModel ca, string domain, List<AADObjectModel>? owners = null,
-        List<AADObjectModel>? requesters = null)
+    public async Task<APIResultModel> RegisterDomainAsync(AvailableCAModel ca, string domain, 
+        List<AADObjectModel>? owners = null,
+        List<AADObjectModel>? certificateAdministrators = null,
+        List<AADObjectModel>? requestersOnly = null,
+        List<string>? notificationEmails = null)
     {
         if (ca == null)
         {
@@ -304,7 +320,7 @@ public class EZCAClientClass : IEZCAClient
             throw new ArgumentNullException(nameof(domain));
         }
         await GetTokenAsync();
-        if (owners == null || requesters == null)
+        if (owners == null || certificateAdministrators == null)
         {
             //get requester information
             AADObjectModel requester = await UserFromTokenAsync();
@@ -312,12 +328,13 @@ public class EZCAClientClass : IEZCAClient
             {
                 requester
             };
-            requesters ??= new()
+            certificateAdministrators ??= new()
             {
                 requester
             };
         }
-        NewDomainRegistrationRequest request = new(ca, domain, owners, requesters);
+        NewDomainRegistrationRequest request = new(ca, domain, owners, certificateAdministrators,
+            requestersOnly, notificationEmails);
         APIResultModel response = await
             _httpClient.CallGenericAsync($"{_url}/api/CA/RegisterNewDomain",
                 JsonSerializer.Serialize(request), _token.Token, HttpMethod.Post);
