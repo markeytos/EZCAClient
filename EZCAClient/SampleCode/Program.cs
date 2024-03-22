@@ -10,6 +10,10 @@ Console.WriteLine("Welcome to the EZCAClient Sample");
 
 //create a new EZCAClient, you can also pass an Azure token credential if you want to use specific credentials 
 //as well as an ILogger to log exceptions that are caught by our HTTP client
+// By default the NuGet package uses https://portal.ezca.io/ as the base URL if you are using another instance
+// (such as a private instance or our local offerings such as eu.ezca.io or au.ezca.io) you can pass the base URL
+// as a parameter to the EZCAClientClass constructor.
+// Example: EZCAClient ezcaClient = new EZCAClientClass(new HttpClient(), logger, "https://eu.ezca.io/");
 IEZCAClient ezcaClient = new EZCAClientClass(new HttpClient());
 
 try
