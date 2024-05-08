@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace EZCAClient.Models;
+
 public class TokenModel
 {
     public TokenModel()
@@ -17,8 +18,10 @@ public class TokenModel
 
     [JsonPropertyName("access_token")]
     public string AccessToken { get; set; }
+
     [JsonPropertyName("not_before")]
     public DateTimeOffset NotBefore { get; set; }
+
     [JsonPropertyName("expires_on")]
     public DateTimeOffset ExpiresOn { get; set; }
 }

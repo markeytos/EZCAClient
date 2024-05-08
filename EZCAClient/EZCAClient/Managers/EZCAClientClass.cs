@@ -1,15 +1,16 @@
-﻿using Azure.Core;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
+using Azure.Core;
 using Azure.Identity;
 using EZCAClient.Models;
 using EZCAClient.Services;
 using Jose;
 using Microsoft.Extensions.Logging;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
-using System.Text.Json;
 
 namespace EZCAClient.Managers;
+
 public interface IEZCAClient
 {
     /// <summary>
@@ -43,11 +44,16 @@ public interface IEZCAClient
     /// <param name="ca">Issuing CA</param>
     /// <param name="domain">the domain for the new certificate</param>
     /// <param name="certificateValidityDays">the duration in days for the new certificate</param>
+    /// <param name="location">Text field for where is this certificate is being stored</param>
     /// <returns>The created <see cref="X509Certificate2"/>.</returns>
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
-    Task<X509Certificate2?> RequestCertificateAsync(AvailableCAModel ca, string domain,
-        int certificateValidityDays);
+    Task<X509Certificate2?> RequestCertificateAsync(
+        AvailableCAModel ca,
+        string domain,
+        int certificateValidityDays,
+        string location = "Generated Locally"
+    );
 
     /// <summary>
     /// Creates a new SSL certificate given a valid csr.
@@ -59,8 +65,12 @@ public interface IEZCAClient
     /// <returns>The created <see cref="X509Certificate2"/>.</returns>
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
-    Task<X509Certificate2?> RequestCertificateAsync(AvailableCAModel ca, string csr, string subjectName,
-        int certificateValidityDays);
+    Task<X509Certificate2?> RequestCertificateAsync(
+        AvailableCAModel ca,
+        string csr,
+        string subjectName,
+        int certificateValidityDays
+    );
 
     /// <summary>
     /// Creates a new Domain Controller certificate given a valid CSR (Only Available for SCEP templates).
@@ -76,9 +86,14 @@ public interface IEZCAClient
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<X509Certificate2?> RequestDCCertificateAsync(
-        AvailableCAModel ca, string csr, string subjectName,
-        string dnsName, int certificateValidityDays,
-        List<string> ekus, string dcGuid = "");
+        AvailableCAModel ca,
+        string csr,
+        string subjectName,
+        string dnsName,
+        int certificateValidityDays,
+        List<string> ekus,
+        string dcGuid = ""
+    );
 
     /// <summary>
     /// Registers a new domain in EZCA with its appropriate owners
@@ -91,13 +106,35 @@ public interface IEZCAClient
     /// <param name="notificationEmails">Extra email list that will get domain and certificate related alerts</param>
     /// <returns><see cref="APIResultModel"/> Indicating if the operation was successful or not.</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
-    Task<APIResultModel> RegisterDomainAsync(AvailableCAModel ca, string domain,
+    Task<APIResultModel> RegisterDomainAsync(
+        AvailableCAModel ca,
+        string domain,
         List<AADObjectModel>? owners = null,
         List<AADObjectModel>? certificateAdministrators = null,
         List<AADObjectModel>? requestersOnly = null,
-        List<string>? notificationEmails = null);
-}
+        List<string>? notificationEmails = null
+    );
 
+    /// <summary>
+    /// Creates a certificate from a CSR and returns the full chain of the certificate
+    /// </summary>
+    /// <param name="ca">Issuing CA</param>
+    /// <param name="csr">Certificate Signing Request for the certificate</param>
+    /// <param name="subjectName">certificate subject name</param>
+    /// <param name="subjectAlternateNames">list of subject alternate names</param>
+    /// <param name="certificateValidityDays">number of days that the certificate is valid for</param>
+    /// <param name="location">Text field for where is this certificate is being stored</param>
+    /// <returns><see cref="CertificateCreatedResponse"/> Containing the PEM strings of the CA chain as well as the issued certificate</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<CertificateCreatedResponse?> RequestCertificateWithChainAsync(
+        AvailableCAModel ca,
+        string csr,
+        string subjectName,
+        List<string> subjectAlternateNames,
+        int certificateValidityDays,
+        string location = "Generate Locally"
+    );
+}
 
 public class EZCAClientClass : IEZCAClient
 {
@@ -106,9 +143,12 @@ public class EZCAClientClass : IEZCAClient
     private AccessToken _token;
     private readonly TokenCredential? _azureTokenCredential;
 
-    public EZCAClientClass(HttpClient httpClient, ILogger? logger = null,
+    public EZCAClientClass(
+        HttpClient httpClient,
+        ILogger? logger = null,
         string baseUrl = "https://portal.ezca.io/",
-        TokenCredential? azureTokenCredential = null)
+        TokenCredential? azureTokenCredential = null
+    )
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
@@ -139,8 +179,11 @@ public class EZCAClientClass : IEZCAClient
         }
         TokenModel token = CreateRSAJWTToken(cert);
         APIResultModel result = await _httpClient.CallGenericAsync(
-            _url + "/api/Certificates/RevokeCertificate", null, token.AccessToken,
-            HttpMethod.Get);
+            _url + "/api/Certificates/RevokeCertificate",
+            null,
+            token.AccessToken,
+            HttpMethod.Get
+        );
         if (result.Success)
         {
             APIResultModel serverResponse =
@@ -163,7 +206,7 @@ public class EZCAClientClass : IEZCAClient
 
     public async Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr)
     {
-        if(cert == null)
+        if (cert == null)
         {
             throw new ArgumentNullException(nameof(cert));
         }
@@ -174,40 +217,38 @@ public class EZCAClientClass : IEZCAClient
         CertRenewReqModel certReq = new(csr, (cert.NotAfter - cert.NotBefore).Days);
         TokenModel token = CreateRSAJWTToken(cert);
         APIResultModel result = await _httpClient.CallGenericAsync(
-            _url + "/api/Certificates/RenewCertificate", 
-            JsonSerializer.Serialize(certReq), token.AccessToken,
-            HttpMethod.Post);
+            _url + "/api/Certificates/RenewCertificate",
+            JsonSerializer.Serialize(certReq),
+            token.AccessToken,
+            HttpMethod.Post
+        );
         if (result.Success)
         {
             APIResultModel serverResponse =
-                JsonSerializer.Deserialize<APIResultModel>(result.Message) ??
-                new(false, "error deserializing response: " + result.Message);
+                JsonSerializer.Deserialize<APIResultModel>(result.Message)
+                ?? new(false, "error deserializing response: " + result.Message);
             if (serverResponse.Success)
             {
                 return serverResponse.Message;
             }
-            else
-            {
-                throw new Exception(serverResponse.Message);
-            }
+            throw new Exception(serverResponse.Message);
         }
-        else
-        {
-            throw new Exception(result.Message);
-        }
+        throw new Exception(result.Message);
     }
 
     public async Task<AvailableCAModel[]?> GetAvailableCAsAsync()
     {
         await GetTokenAsync();
         AvailableCAModel[]? availableCAs;
-        APIResultModel response = await
-                _httpClient.CallGenericAsync($"{_url}/api/CA/GetAvailableSSLCAs", null, _token.Token,
-                    HttpMethod.Get);
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/GetAvailableSSLCAs",
+            null,
+            _token.Token,
+            HttpMethod.Get
+        );
         if (response.Success)
         {
-            availableCAs = JsonSerializer.Deserialize
-                <AvailableCAModel[]>(response.Message);
+            availableCAs = JsonSerializer.Deserialize<AvailableCAModel[]>(response.Message);
         }
         else
         {
@@ -215,15 +256,19 @@ public class EZCAClientClass : IEZCAClient
         }
         return availableCAs;
     }
-    
-    public async Task<X509Certificate2?> RequestCertificateAsync(AvailableCAModel ca, string domain, 
-        int certificateValidityDays)
+
+    public async Task<X509Certificate2?> RequestCertificateAsync(
+        AvailableCAModel ca,
+        string domain,
+        int certificateValidityDays,
+        string location = "Generate Locally"
+    )
     {
-        if(ca == null)
+        if (ca == null)
         {
             throw new ArgumentNullException(nameof(ca));
         }
-        if(string.IsNullOrWhiteSpace(domain))
+        if (string.IsNullOrWhiteSpace(domain))
         {
             throw new ArgumentNullException(nameof(domain));
         }
@@ -231,52 +276,86 @@ public class EZCAClientClass : IEZCAClient
         //create a 4096 RSA key
         RSA key = RSA.Create(4096);
 
-        //create Certificate Signing Request 
+        //create Certificate Signing Request
         X500DistinguishedName x500DistinguishedName = new("CN=" + domain);
-        CertificateRequest certificateRequest = new(x500DistinguishedName, key,
-            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        CertificateRequest certificateRequest =
+            new(x500DistinguishedName, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         string csr = CryptoStaticService.PemEncodeSigningRequest(certificateRequest);
-        List<string> subjectAlternateNames = new()
-        {
-            domain
-        };
-        CertificateCreateRequestModel request = new(ca, "CN=" + domain,
-            subjectAlternateNames, csr, certificateValidityDays, "Generate Locally (Takes Up to Two Minutes)");
-        APIResultModel response = await
-            _httpClient.CallGenericAsync($"{_url}/api/CA/RequestSSLCertificate",
-                JsonSerializer.Serialize(request), _token.Token, HttpMethod.Post);
+        List<string> subjectAlternateNames = new() { domain };
+        CertificateCreateRequestModel request =
+            new(ca, "CN=" + domain, subjectAlternateNames, csr, certificateValidityDays, location);
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/RequestSSLCertificate",
+            JsonSerializer.Serialize(request),
+            _token.Token,
+            HttpMethod.Post
+        );
         if (response.Success)
         {
-            APIResultModel result = JsonSerializer.Deserialize
-                <APIResultModel>(response.Message) ?? new (false, "Error reading server response");
-            if(result.Success)
+            APIResultModel result =
+                JsonSerializer.Deserialize<APIResultModel>(response.Message)
+                ?? new(false, "Error reading server response");
+            if (result.Success)
             {
-                X509Certificate2 certificate = CryptoStaticService.ImportCertFromPEMString(result.Message);
+                X509Certificate2 certificate = CryptoStaticService.ImportCertFromPEMString(
+                    result.Message
+                );
                 return certificate.CopyWithPrivateKey(key);
             }
-            else
-            {
-                throw new ApplicationException(result.Message);
-            }
+            throw new ApplicationException(result.Message);
         }
-        else
-        {
-            throw new HttpRequestException(response.Message);
-        }
+        throw new HttpRequestException(response.Message);
     }
-    
-    public async Task<X509Certificate2?> RequestCertificateAsync(AvailableCAModel ca, string csr, string subjectName,
-        int certificateValidityDays)
+
+    public async Task<CertificateCreatedResponse?> RequestCertificateWithChainAsync(
+        AvailableCAModel ca,
+        string csr,
+        string subjectName,
+        List<string> subjectAlternateNames,
+        int certificateValidityDays,
+        string location = "Generate Locally"
+    )
     {
-        if(ca == null)
+        if (ca == null)
         {
             throw new ArgumentNullException(nameof(ca));
         }
-        if(string.IsNullOrWhiteSpace(csr))
+        if (string.IsNullOrWhiteSpace(csr))
         {
             throw new ArgumentNullException(nameof(csr));
         }
-        if(string.IsNullOrWhiteSpace(subjectName))
+        await GetTokenAsync();
+        CertificateCreateRequestModel request =
+            new(ca, subjectName, subjectAlternateNames, csr, certificateValidityDays, location);
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/RequestFullSSLCertificate",
+            JsonSerializer.Serialize(request),
+            _token.Token,
+            HttpMethod.Post
+        );
+        if (response.Success)
+        {
+            return JsonSerializer.Deserialize<CertificateCreatedResponse>(response.Message);
+        }
+        throw new HttpRequestException(response.Message);
+    }
+
+    public async Task<X509Certificate2?> RequestCertificateAsync(
+        AvailableCAModel ca,
+        string csr,
+        string subjectName,
+        int certificateValidityDays
+    )
+    {
+        if (ca == null)
+        {
+            throw new ArgumentNullException(nameof(ca));
+        }
+        if (string.IsNullOrWhiteSpace(csr))
+        {
+            throw new ArgumentNullException(nameof(csr));
+        }
+        if (string.IsNullOrWhiteSpace(subjectName))
         {
             throw new ArgumentNullException(nameof(subjectName));
         }
@@ -286,30 +365,39 @@ public class EZCAClientClass : IEZCAClient
             subjectName = "CN=" + subjectName;
         }
         await GetTokenAsync();
-        CertificateCreateRequestModel request = new(ca, subjectName,
-            new(), csr, certificateValidityDays, EZCAConstants.IMPORTCSR);
-        APIResultModel response = await
-            _httpClient.CallGenericAsync($"{_url}/api/CA/RequestSSLCertificate",
-                JsonSerializer.Serialize(request), _token.Token, HttpMethod.Post);
+        CertificateCreateRequestModel request =
+            new(ca, subjectName, new(), csr, certificateValidityDays, EZCAConstants.IMPORTCSR);
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/RequestSSLCertificate",
+            JsonSerializer.Serialize(request),
+            _token.Token,
+            HttpMethod.Post
+        );
         if (response.Success)
         {
-            APIResultModel result = JsonSerializer.Deserialize
-                <APIResultModel>(response.Message) ?? new (false, "Error reading server response");
-            if(result.Success)
+            APIResultModel result =
+                JsonSerializer.Deserialize<APIResultModel>(response.Message)
+                ?? new(false, "Error reading server response");
+            if (result.Success)
             {
-                X509Certificate2 certificate = CryptoStaticService.ImportCertFromPEMString(result.Message);
+                X509Certificate2 certificate = CryptoStaticService.ImportCertFromPEMString(
+                    result.Message
+                );
                 return certificate;
             }
             throw new ApplicationException(result.Message);
         }
         throw new HttpRequestException(response.Message);
     }
-    
-    public async Task<APIResultModel> RegisterDomainAsync(AvailableCAModel ca, string domain, 
+
+    public async Task<APIResultModel> RegisterDomainAsync(
+        AvailableCAModel ca,
+        string domain,
         List<AADObjectModel>? owners = null,
         List<AADObjectModel>? certificateAdministrators = null,
         List<AADObjectModel>? requestersOnly = null,
-        List<string>? notificationEmails = null)
+        List<string>? notificationEmails = null
+    )
     {
         if (ca == null)
         {
@@ -324,33 +412,36 @@ public class EZCAClientClass : IEZCAClient
         {
             //get requester information
             AADObjectModel requester = await UserFromTokenAsync();
-            owners ??= new()
-            {
-                requester
-            };
-            certificateAdministrators ??= new()
-            {
-                requester
-            };
+            owners ??= new() { requester };
+            certificateAdministrators ??= new() { requester };
         }
-        NewDomainRegistrationRequest request = new(ca, domain, owners, certificateAdministrators,
-            requestersOnly, notificationEmails);
-        APIResultModel response = await
-            _httpClient.CallGenericAsync($"{_url}/api/CA/RegisterNewDomain",
-                JsonSerializer.Serialize(request), _token.Token, HttpMethod.Post);
+        NewDomainRegistrationRequest request =
+            new(ca, domain, owners, certificateAdministrators, requestersOnly, notificationEmails);
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/RegisterNewDomain",
+            JsonSerializer.Serialize(request),
+            _token.Token,
+            HttpMethod.Post
+        );
         if (response.Success)
         {
-            APIResultModel result = JsonSerializer.Deserialize
-                <APIResultModel>(response.Message) ?? new (false, "Error reading server response");
+            APIResultModel result =
+                JsonSerializer.Deserialize<APIResultModel>(response.Message)
+                ?? new(false, "Error reading server response");
             return result;
         }
         throw new HttpRequestException(response.Message);
     }
 
     public async Task<X509Certificate2?> RequestDCCertificateAsync(
-        AvailableCAModel ca, string csr, string subjectName, 
-        string dnsName, int certificateValidityDays, 
-        List<string> ekus, string dcGuid = "")
+        AvailableCAModel ca,
+        string csr,
+        string subjectName,
+        string dnsName,
+        int certificateValidityDays,
+        List<string> ekus,
+        string dcGuid = ""
+    )
     {
         if (ca == null)
         {
@@ -368,7 +459,7 @@ public class EZCAClientClass : IEZCAClient
         {
             throw new ArgumentNullException(nameof(dnsName));
         }
-        if(certificateValidityDays < 1)
+        if (certificateValidityDays < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(certificateValidityDays));
         }
@@ -378,26 +469,41 @@ public class EZCAClientClass : IEZCAClient
             throw new ArgumentNullException(nameof(ekus));
         }
 
-        if (!subjectName.StartsWith("CN=", StringComparison.OrdinalIgnoreCase) &&
-            !subjectName.StartsWith("CN =", StringComparison.OrdinalIgnoreCase))
+        if (
+            !subjectName.StartsWith("CN=", StringComparison.OrdinalIgnoreCase)
+            && !subjectName.StartsWith("CN =", StringComparison.OrdinalIgnoreCase)
+        )
         {
             subjectName = "CN=" + subjectName;
         }
         await GetTokenAsync();
-        CertificateCreateRequestModel request = new(ca, subjectName,
-            new() { dnsName }, csr, certificateValidityDays, 
-            EZCAConstants.DomainController, ekus, dcGuid);
-        APIResultModel response = await
-            _httpClient.CallGenericAsync($"{_url}/api/CA/RequestDCCertificate",
-                JsonSerializer.Serialize(request), _token.Token, HttpMethod.Post);
+        CertificateCreateRequestModel request =
+            new(
+                ca,
+                subjectName,
+                [dnsName],
+                csr,
+                certificateValidityDays,
+                EZCAConstants.DomainController,
+                ekus,
+                dcGuid
+            );
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/RequestDCCertificate",
+            JsonSerializer.Serialize(request),
+            _token.Token,
+            HttpMethod.Post
+        );
         if (response.Success)
         {
-            APIResultModel result = JsonSerializer.Deserialize
-                <APIResultModel>(response.Message) ?? new(false, "Error reading server response");
+            APIResultModel result =
+                JsonSerializer.Deserialize<APIResultModel>(response.Message)
+                ?? new(false, "Error reading server response");
             if (result.Success)
             {
                 X509Certificate2 certificate = CryptoStaticService.ImportCertFromPEMString(
-                    result.Message);
+                    result.Message
+                );
                 return certificate;
             }
             throw new ApplicationException(result.Message);
@@ -408,50 +514,56 @@ public class EZCAClientClass : IEZCAClient
     private async Task<AADObjectModel> UserFromTokenAsync()
     {
         await GetTokenAsync();
-        JwtSecurityTokenHandler handler = new ();
+        JwtSecurityTokenHandler handler = new();
         var jsonToken = handler.ReadToken(_token.Token);
         JwtSecurityToken tokenS = (JwtSecurityToken)jsonToken;
-        string objectID = (string)tokenS.Payload.FirstOrDefault(i => i.Key == "oid").Value;
+        string objectId = (string)tokenS.Payload.FirstOrDefault(i => i.Key == "oid").Value;
         string upn = (string)tokenS.Payload.FirstOrDefault(i => i.Key == "upn").Value;
-        return new(objectID, upn);
+        return new(objectId, upn);
     }
 
-    private  async Task GetTokenAsync()
+    private async Task GetTokenAsync()
     {
-        TokenRequestContext authContext = new(
-            new[] { "https://management.core.windows.net/.default" });
-        if(_azureTokenCredential == null)
+        TokenRequestContext authContext =
+            new(new[] { "https://management.core.windows.net/.default" });
+        if (_azureTokenCredential == null)
         {
             throw new ArgumentNullException(nameof(_azureTokenCredential));
         }
         _token = await _azureTokenCredential.GetTokenAsync(authContext, default);
-        if(string.IsNullOrWhiteSpace(_token.Token))
+        if (string.IsNullOrWhiteSpace(_token.Token))
         {
             throw new AuthenticationFailedException("Error getting token");
         }
     }
-    
+
     private static TokenModel CreateRSAJWTToken(X509Certificate2 clientCertificate)
     {
-        if(clientCertificate.GetRSAPublicKey() == null)
+        if (clientCertificate.GetRSAPublicKey() == null)
         {
-            throw new ArgumentException("Only RSA certificates are supported for certificate based authentication");
+            throw new ArgumentException(
+                "Only RSA certificates are supported for certificate based authentication"
+            );
         }
         var headers = new Dictionary<string, object>
-            {
-                { "typ", "JWT" },
-                { "x5t", clientCertificate.Thumbprint }
-            };
+        {
+            { "typ", "JWT" },
+            { "x5t", clientCertificate.Thumbprint }
+        };
         TokenModel token = new();
         var payload = new Dictionary<string, object>()
-            {
-                {"aud", $"https://ezca.io"},
-                {"jti", Guid.NewGuid().ToString()},
-                {"nbf", (ulong)token.NotBefore.ToUnixTimeSeconds()},
-                {"exp", (ulong)token.ExpiresOn.ToUnixTimeSeconds()}
-            };
-        token.AccessToken = JWT.Encode(payload, clientCertificate.GetRSAPrivateKey(),
-            JwsAlgorithm.RS256, extraHeaders: headers);
+        {
+            { "aud", $"https://ezca.io" },
+            { "jti", Guid.NewGuid().ToString() },
+            { "nbf", (ulong)token.NotBefore.ToUnixTimeSeconds() },
+            { "exp", (ulong)token.ExpiresOn.ToUnixTimeSeconds() }
+        };
+        token.AccessToken = JWT.Encode(
+            payload,
+            clientCertificate.GetRSAPrivateKey(),
+            JwsAlgorithm.RS256,
+            extraHeaders: headers
+        );
         return token;
     }
 }

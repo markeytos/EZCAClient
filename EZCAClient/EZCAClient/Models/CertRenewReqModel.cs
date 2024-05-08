@@ -12,7 +12,7 @@ namespace EZCAClient.Models
         public CertRenewReqModel(string csr, int validity)
         {
             CSR = csr;
-            if(validity < 0)
+            if (validity < 0)
             {
                 validity = validity * -1;
             }

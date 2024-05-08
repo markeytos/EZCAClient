@@ -20,16 +20,18 @@ public static class InputService
             Console.WriteLine($"Enter {i} to select {availableCAs[i].CAFriendlyName}");
         }
         int selection = -1;
-        while (selection >= availableCAs.Length
-               || selection < 0)
+        while (selection >= availableCAs.Length || selection < 0)
         {
             string? input = Console.ReadLine();
-            if (!Int32.TryParse(input, out selection)
+            if (
+                !Int32.TryParse(input, out selection)
                 || selection >= availableCAs.Length
-                || selection < 0)
+                || selection < 0
+            )
             {
-                Console.WriteLine($"Invalid Input: Please enter a value between 0 " +
-                                  $"and {availableCAs.Length}");
+                Console.WriteLine(
+                    $"Invalid Input: Please enter a value between 0 " + $"and {availableCAs.Length}"
+                );
             }
         }
         return availableCAs[selection];

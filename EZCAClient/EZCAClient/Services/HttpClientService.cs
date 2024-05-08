@@ -1,21 +1,20 @@
-﻿using EZCAClient.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Net;
+﻿using System.Net;
 using System.Text;
-using System.Threading.Tasks;
-using Polly.Retry;
-using Polly;
+using EZCAClient.Models;
 using Microsoft.Extensions.Logging;
+using Polly;
+using Polly.Retry;
 
 namespace EZCAClient.Services;
 
 public interface IHttpClientService
 {
-    Task<APIResultModel> CallGenericAsync(string url, string? jsonPayload,
-        string? token, HttpMethod httpMethod);
+    Task<APIResultModel> CallGenericAsync(
+        string url,
+        string? jsonPayload,
+        string? token,
+        HttpMethod httpMethod
+    );
 }
 
 public class HttpClientService : IHttpClientService
@@ -23,57 +22,60 @@ public class HttpClientService : IHttpClientService
     private readonly HttpClient _httpClient;
     private readonly AsyncRetryPolicy<HttpResponseMessage> _retryPolicy;
     private readonly ILogger? _logger;
+
     public HttpClientService(HttpClient httpClient, ILogger? logger)
     {
         _logger = logger;
         _httpClient = httpClient;
-        HttpStatusCode[] httpStatusCodesWorthRetrying = {
-               HttpStatusCode.RequestTimeout, // 408
-               HttpStatusCode.InternalServerError, // 500
-               HttpStatusCode.BadGateway, // 502
-               HttpStatusCode.ServiceUnavailable, // 503
-               HttpStatusCode.GatewayTimeout // 504
-            };
+        HttpStatusCode[] httpStatusCodesWorthRetrying =
+        [
+            HttpStatusCode.RequestTimeout, // 408
+            HttpStatusCode.InternalServerError, // 500
+            HttpStatusCode.BadGateway, // 502
+            HttpStatusCode.ServiceUnavailable, // 503
+            HttpStatusCode.GatewayTimeout // 504
+        ];
         _retryPolicy = Policy
             .Handle<HttpRequestException>()
             .OrInner<TaskCanceledException>()
             .OrResult<HttpResponseMessage>(r => httpStatusCodesWorthRetrying.Contains(r.StatusCode))
-              .WaitAndRetryAsync(new[]
-              {
-                    TimeSpan.FromSeconds(2),
-                    TimeSpan.FromSeconds(4),
-                    TimeSpan.FromSeconds(8)
-              });
+            .WaitAndRetryAsync(
+                new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(8) }
+            );
     }
-    public async Task<APIResultModel> CallGenericAsync(string url, string? jsonPayload, 
-        string? token, HttpMethod httpMethod)
+
+    public async Task<APIResultModel> CallGenericAsync(
+        string url,
+        string? jsonPayload,
+        string? token,
+        HttpMethod httpMethod
+    )
     {
-        if(string.IsNullOrWhiteSpace(url))
+        if (string.IsNullOrWhiteSpace(url))
         {
             throw new ArgumentNullException(nameof(url));
         }
-        if(httpMethod == null)
+        if (httpMethod == null)
         {
             throw new ArgumentNullException(nameof(httpMethod));
         }
         APIResultModel apiResult = new();
-        HttpResponseMessage responseMessage;
         try
         {
-            responseMessage = await _retryPolicy.ExecuteAsync(async () =>
-                      await CreateAndSendAsync(url, jsonPayload, token, httpMethod));
+            HttpResponseMessage responseMessage = await _retryPolicy.ExecuteAsync(
+                async () => await CreateAndSendAsync(url, jsonPayload, token, httpMethod)
+            );
             apiResult.Message = await responseMessage.Content.ReadAsStringAsync();
             apiResult.Success = responseMessage.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            if(_logger != null)
+            if (_logger != null)
             {
                 _logger.LogError(ex, "Error contacting EZCA");
             }
             apiResult.Success = false;
-            if (ex.Message.Contains("One or more errors")
-                && ex.InnerException != null)
+            if (ex.Message.Contains("One or more errors") && ex.InnerException != null)
             {
                 apiResult.Message = ex.InnerException.Message;
             }
@@ -85,21 +87,26 @@ public class HttpClientService : IHttpClientService
         return apiResult;
     }
 
-    private async Task<HttpResponseMessage> CreateAndSendAsync(string url,
-            string? jsonPayload, string? token, HttpMethod method)
+    private async Task<HttpResponseMessage> CreateAndSendAsync(
+        string url,
+        string? jsonPayload,
+        string? token,
+        HttpMethod method
+    )
     {
         HttpRequestMessage requestMessage = new(method, url);
         if (!string.IsNullOrWhiteSpace(jsonPayload))
         {
-            requestMessage.Content = new StringContent(jsonPayload,
-                Encoding.UTF8, "application/json");
+            requestMessage.Content = new StringContent(
+                jsonPayload,
+                Encoding.UTF8,
+                "application/json"
+            );
         }
         if (!string.IsNullOrWhiteSpace(token))
         {
-            requestMessage.Headers.Add("Authorization",
-                "Bearer " + token);
+            requestMessage.Headers.Add("Authorization", "Bearer " + token);
         }
         return await _httpClient.SendAsync(requestMessage);
     }
-
 }

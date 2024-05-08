@@ -14,11 +14,13 @@ public class APIResultModel
         Success = success;
         Message = message;
     }
+
     public APIResultModel()
     {
         Message = string.Empty;
         Success = false;
     }
+
     public APIResultModel(bool success)
     {
         Success = success;
@@ -27,6 +29,7 @@ public class APIResultModel
 
     [JsonPropertyName("Success")]
     public bool Success { get; set; }
+
     [JsonPropertyName("Message")]
     public string Message { get; set; }
 }
