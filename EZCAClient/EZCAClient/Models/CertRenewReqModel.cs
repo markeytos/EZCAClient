@@ -18,11 +18,25 @@ namespace EZCAClient.Models
             }
             ValidityInDays = validity;
         }
+        
+        public CertRenewReqModel(string csr, int validity, string sid)
+        {
+            CSR = csr;
+            if (validity < 0)
+            {
+                validity = validity * -1;
+            }
+            ValidityInDays = validity;
+            Sid = sid;
+        }
 
         [JsonPropertyName("CSR")]
         public string CSR { get; set; }
 
         [JsonPropertyName("ValidityInDays")]
         public int ValidityInDays { get; set; }
+        
+        [JsonPropertyName("Sid")]
+        public string? Sid {get; set;}
     }
 }

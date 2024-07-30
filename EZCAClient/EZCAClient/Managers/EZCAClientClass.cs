@@ -18,10 +18,11 @@ public interface IEZCAClient
     /// </summary>
     /// <param name="cert">Certificate to Renew </param>
     /// <param name="csr">CSR of new Certificate </param>
+    /// <param name="sid">Security ID</param>
     /// <returns>base64 Certificate</returns>
     /// <exception cref="ApplicationException">Error renewing certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
-    Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr);
+    Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr, string sid = "");
 
     /// <summary>
     /// Revoke Certificate in EZCA
@@ -45,6 +46,7 @@ public interface IEZCAClient
     /// <param name="domain">the domain for the new certificate</param>
     /// <param name="certificateValidityDays">the duration in days for the new certificate</param>
     /// <param name="location">Text field for where is this certificate is being stored</param>
+    /// <param name="sid">Security ID</param>
     /// <returns>The created <see cref="X509Certificate2"/>.</returns>
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
@@ -52,7 +54,8 @@ public interface IEZCAClient
         AvailableCAModel ca,
         string domain,
         int certificateValidityDays,
-        string location = "Generated Locally"
+        string location = "Generated Locally",
+        string sid = ""
     );
 
     /// <summary>
@@ -62,6 +65,7 @@ public interface IEZCAClient
     /// <param name="subjectName">The certificate's subject name</param>
     /// <param name="certificateValidityDays">the duration in days for the new certificate</param>
     /// <param name="csr">the created CSR</param>
+    /// <param name="sid">Security ID</param>
     /// <returns>The created <see cref="X509Certificate2"/>.</returns>
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
@@ -69,7 +73,8 @@ public interface IEZCAClient
         AvailableCAModel ca,
         string csr,
         string subjectName,
-        int certificateValidityDays
+        int certificateValidityDays,
+        string sid = ""
     );
 
     /// <summary>
@@ -82,6 +87,7 @@ public interface IEZCAClient
     /// <param name="csr">the created CSR</param>
     /// <param name="dcGuid">The domain controller's GUID (only required if SMTP replication is used)</param>
     /// <param name="ekus">The EKUs requested for the Certificate</param>
+    /// <param name="sid">Security ID</param>
     /// <returns>The created <see cref="X509Certificate2"/>.</returns>
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
@@ -92,7 +98,8 @@ public interface IEZCAClient
         string dnsName,
         int certificateValidityDays,
         List<string> ekus,
-        string dcGuid = ""
+        string dcGuid = "",
+        string sid = ""
     );
 
     /// <summary>
@@ -124,6 +131,7 @@ public interface IEZCAClient
     /// <param name="subjectAlternateNames">list of subject alternate names</param>
     /// <param name="certificateValidityDays">number of days that the certificate is valid for</param>
     /// <param name="location">Text field for where is this certificate is being stored</param>
+    /// <param name="sid">Security ID</param>
     /// <returns><see cref="CertificateCreatedResponse"/> Containing the PEM strings of the CA chain as well as the issued certificate</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<CertificateCreatedResponse?> RequestCertificateWithChainAsync(
@@ -132,7 +140,8 @@ public interface IEZCAClient
         string subjectName,
         List<string> subjectAlternateNames,
         int certificateValidityDays,
-        string location = "Generate Locally"
+        string location = "Generate Locally",
+        string sid = ""
     );
 }
 
@@ -204,7 +213,7 @@ public class EZCAClientClass : IEZCAClient
         }
     }
 
-    public async Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr)
+    public async Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr, string sid = "")
     {
         if (cert == null)
         {
@@ -214,7 +223,11 @@ public class EZCAClientClass : IEZCAClient
         {
             throw new ArgumentNullException(nameof(csr));
         }
-        CertRenewReqModel certReq = new(csr, (cert.NotAfter - cert.NotBefore).Days);
+        if (string.IsNullOrWhiteSpace(sid))
+        {
+            throw new ArgumentNullException(nameof(sid));
+        }
+        CertRenewReqModel certReq = new(csr, (cert.NotAfter - cert.NotBefore).Days, sid);
         TokenModel token = CreateRSAJWTToken(cert);
         APIResultModel result = await _httpClient.CallGenericAsync(
             _url + "/api/Certificates/RenewCertificate",
@@ -261,7 +274,8 @@ public class EZCAClientClass : IEZCAClient
         AvailableCAModel ca,
         string domain,
         int certificateValidityDays,
-        string location = "Generate Locally"
+        string location = "Generate Locally",
+        string sid = ""
     )
     {
         if (ca == null)
@@ -271,6 +285,11 @@ public class EZCAClientClass : IEZCAClient
         if (string.IsNullOrWhiteSpace(domain))
         {
             throw new ArgumentNullException(nameof(domain));
+        }
+
+        if (string.IsNullOrWhiteSpace(sid))
+        {
+            throw new ArgumentNullException(nameof(sid));
         }
         await GetTokenAsync();
         //create a 4096 RSA key
@@ -283,7 +302,7 @@ public class EZCAClientClass : IEZCAClient
         string csr = CryptoStaticService.PemEncodeSigningRequest(certificateRequest);
         List<string> subjectAlternateNames = new() { domain };
         CertificateCreateRequestModel request =
-            new(ca, "CN=" + domain, subjectAlternateNames, csr, certificateValidityDays, location);
+            new(ca, "CN=" + domain, subjectAlternateNames, csr, certificateValidityDays, location, sid);
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestSSLCertificate",
             JsonSerializer.Serialize(request),
@@ -313,7 +332,8 @@ public class EZCAClientClass : IEZCAClient
         string subjectName,
         List<string> subjectAlternateNames,
         int certificateValidityDays,
-        string location = "Generate Locally"
+        string location = "Generate Locally",
+        string sid = ""
     )
     {
         if (ca == null)
@@ -326,7 +346,7 @@ public class EZCAClientClass : IEZCAClient
         }
         await GetTokenAsync();
         CertificateCreateRequestModel request =
-            new(ca, subjectName, subjectAlternateNames, csr, certificateValidityDays, location);
+            new(ca, subjectName, subjectAlternateNames, csr, certificateValidityDays, location, sid);
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestFullSSLCertificate",
             JsonSerializer.Serialize(request),
@@ -344,7 +364,8 @@ public class EZCAClientClass : IEZCAClient
         AvailableCAModel ca,
         string csr,
         string subjectName,
-        int certificateValidityDays
+        int certificateValidityDays,
+        string sid = ""
     )
     {
         if (ca == null)
@@ -366,7 +387,7 @@ public class EZCAClientClass : IEZCAClient
         }
         await GetTokenAsync();
         CertificateCreateRequestModel request =
-            new(ca, subjectName, new(), csr, certificateValidityDays, EZCAConstants.IMPORTCSR);
+            new(ca, subjectName, new(), csr, certificateValidityDays, EZCAConstants.IMPORTCSR, sid);
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestSSLCertificate",
             JsonSerializer.Serialize(request),
@@ -440,7 +461,8 @@ public class EZCAClientClass : IEZCAClient
         string dnsName,
         int certificateValidityDays,
         List<string> ekus,
-        string dcGuid = ""
+        string dcGuid = "",
+        string sid = ""
     )
     {
         if (ca == null)
@@ -486,7 +508,8 @@ public class EZCAClientClass : IEZCAClient
                 certificateValidityDays,
                 EZCAConstants.DomainController,
                 ekus,
-                dcGuid
+                dcGuid,
+                sid
             );
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestDCCertificate",
