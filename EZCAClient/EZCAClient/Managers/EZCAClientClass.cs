@@ -18,7 +18,6 @@ public interface IEZCAClient
     /// </summary>
     /// <param name="cert">Certificate to Renew </param>
     /// <param name="csr">CSR of new Certificate </param>
-    /// <param name="sid">Security ID</param>
     /// <returns>base64 Certificate</returns>
     /// <exception cref="ApplicationException">Error renewing certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
@@ -46,7 +45,6 @@ public interface IEZCAClient
     /// <param name="domain">the domain for the new certificate</param>
     /// <param name="certificateValidityDays">the duration in days for the new certificate</param>
     /// <param name="location">Text field for where is this certificate is being stored</param>
-    /// <param name="sid">Security ID</param>
     /// <returns>The created <see cref="X509Certificate2"/>.</returns>
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
@@ -54,8 +52,7 @@ public interface IEZCAClient
         AvailableCAModel ca,
         string domain,
         int certificateValidityDays,
-        string location = "Generated Locally",
-        string sid = ""
+        string location = "Generated Locally"
     );
 
     /// <summary>
@@ -65,7 +62,6 @@ public interface IEZCAClient
     /// <param name="subjectName">The certificate's subject name</param>
     /// <param name="certificateValidityDays">the duration in days for the new certificate</param>
     /// <param name="csr">the created CSR</param>
-    /// <param name="sid">Security ID</param>
     /// <returns>The created <see cref="X509Certificate2"/>.</returns>
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
@@ -73,8 +69,7 @@ public interface IEZCAClient
         AvailableCAModel ca,
         string csr,
         string subjectName,
-        int certificateValidityDays,
-        string sid = ""
+        int certificateValidityDays
     );
 
     /// <summary>
@@ -131,7 +126,6 @@ public interface IEZCAClient
     /// <param name="subjectAlternateNames">list of subject alternate names</param>
     /// <param name="certificateValidityDays">number of days that the certificate is valid for</param>
     /// <param name="location">Text field for where is this certificate is being stored</param>
-    /// <param name="sid">Security ID</param>
     /// <returns><see cref="CertificateCreatedResponse"/> Containing the PEM strings of the CA chain as well as the issued certificate</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<CertificateCreatedResponse?> RequestCertificateWithChainAsync(
@@ -140,8 +134,7 @@ public interface IEZCAClient
         string subjectName,
         List<string> subjectAlternateNames,
         int certificateValidityDays,
-        string location = "Generate Locally",
-        string sid = ""
+        string location = "Generate Locally"
     );
 }
 
@@ -270,8 +263,7 @@ public class EZCAClientClass : IEZCAClient
         AvailableCAModel ca,
         string domain,
         int certificateValidityDays,
-        string location = "Generate Locally",
-        string sid = ""
+        string location = "Generate Locally"
     )
     {
         if (ca == null)
@@ -281,11 +273,6 @@ public class EZCAClientClass : IEZCAClient
         if (string.IsNullOrWhiteSpace(domain))
         {
             throw new ArgumentNullException(nameof(domain));
-        }
-
-        if (string.IsNullOrWhiteSpace(sid))
-        {
-            throw new ArgumentNullException(nameof(sid));
         }
         await GetTokenAsync();
         //create a 4096 RSA key
@@ -298,7 +285,7 @@ public class EZCAClientClass : IEZCAClient
         string csr = CryptoStaticService.PemEncodeSigningRequest(certificateRequest);
         List<string> subjectAlternateNames = new() { domain };
         CertificateCreateRequestModel request =
-            new(ca, "CN=" + domain, subjectAlternateNames, csr, certificateValidityDays, location, sid);
+            new(ca, "CN=" + domain, subjectAlternateNames, csr, certificateValidityDays, location);
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestSSLCertificate",
             JsonSerializer.Serialize(request),
@@ -328,8 +315,7 @@ public class EZCAClientClass : IEZCAClient
         string subjectName,
         List<string> subjectAlternateNames,
         int certificateValidityDays,
-        string location = "Generate Locally",
-        string sid = ""
+        string location = "Generate Locally"
     )
     {
         if (ca == null)
@@ -342,7 +328,7 @@ public class EZCAClientClass : IEZCAClient
         }
         await GetTokenAsync();
         CertificateCreateRequestModel request =
-            new(ca, subjectName, subjectAlternateNames, csr, certificateValidityDays, location, sid);
+            new(ca, subjectName, subjectAlternateNames, csr, certificateValidityDays, location);
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestFullSSLCertificate",
             JsonSerializer.Serialize(request),
@@ -360,8 +346,7 @@ public class EZCAClientClass : IEZCAClient
         AvailableCAModel ca,
         string csr,
         string subjectName,
-        int certificateValidityDays,
-        string sid = ""
+        int certificateValidityDays
     )
     {
         if (ca == null)
@@ -383,7 +368,7 @@ public class EZCAClientClass : IEZCAClient
         }
         await GetTokenAsync();
         CertificateCreateRequestModel request =
-            new(ca, subjectName, new(), csr, certificateValidityDays, EZCAConstants.IMPORTCSR, sid);
+            new(ca, subjectName, new(), csr, certificateValidityDays, EZCAConstants.IMPORTCSR);
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestSSLCertificate",
             JsonSerializer.Serialize(request),
