@@ -22,7 +22,7 @@ public interface IEZCAClient
     /// <returns>base64 Certificate</returns>
     /// <exception cref="ApplicationException">Error renewing certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
-    Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr, string sid = "");
+    Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr);
 
     /// <summary>
     /// Revoke Certificate in EZCA
@@ -213,7 +213,7 @@ public class EZCAClientClass : IEZCAClient
         }
     }
 
-    public async Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr, string sid = "")
+    public async Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr)
     {
         if (cert == null)
         {
@@ -223,11 +223,7 @@ public class EZCAClientClass : IEZCAClient
         {
             throw new ArgumentNullException(nameof(csr));
         }
-        if (string.IsNullOrWhiteSpace(sid))
-        {
-            throw new ArgumentNullException(nameof(sid));
-        }
-        CertRenewReqModel certReq = new(csr, (cert.NotAfter - cert.NotBefore).Days, sid);
+        CertRenewReqModel certReq = new(csr, (cert.NotAfter - cert.NotBefore).Days);
         TokenModel token = CreateRSAJWTToken(cert);
         APIResultModel result = await _httpClient.CallGenericAsync(
             _url + "/api/Certificates/RenewCertificate",
