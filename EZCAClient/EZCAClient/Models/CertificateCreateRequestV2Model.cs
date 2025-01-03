@@ -1,18 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Serialization;
 
 namespace EZCAClient.Models;
 
-public class CertificateCreateRequestModel
+public class CertificateCreateRequestV2Model
 {
-    public CertificateCreateRequestModel(
+    public CertificateCreateRequestV2Model() { }
+
+    public CertificateCreateRequestV2Model(
         AvailableCAModel ca,
         string subjectName,
-        List<string> subjectAltNames,
+        List<SubjectAltValue> subjectAltNames,
         string csr,
         int lifetime,
         string location
@@ -20,46 +17,24 @@ public class CertificateCreateRequestModel
     {
         SubjectName = subjectName;
         SubjectAltNames = subjectAltNames;
-        CAID = ca.CAID;
-        TemplateID = ca.TemplateID;
+        CAID = ca.CAID!;
+        TemplateID = ca.TemplateID!;
         CSR = csr;
         ValidityInDays = lifetime;
         SelectedLocation = location;
-    }
-
-    public CertificateCreateRequestModel(
-        AvailableCAModel ca,
-        string subjectName,
-        List<string> subjectAltNames,
-        string csr,
-        int lifetime,
-        string location,
-        List<string> ekus,
-        string certAppID
-    )
-    {
-        SubjectName = subjectName;
-        SubjectAltNames = subjectAltNames;
-        CAID = ca.CAID;
-        TemplateID = ca.TemplateID;
-        CSR = csr;
-        ValidityInDays = lifetime;
-        SelectedLocation = location;
-        EKUs = ekus.ToArray();
-        CertAppID = certAppID;
     }
 
     [JsonPropertyName("SubjectName")]
     public string SubjectName { get; set; } = string.Empty;
 
     [JsonPropertyName("SubjectAltNames")]
-    public List<string> SubjectAltNames { get; set; } = new();
+    public List<SubjectAltValue> SubjectAltNames { get; set; } = new();
 
     [JsonPropertyName("CAID")]
-    public string? CAID { get; set; }
+    public string CAID { get; set; } = string.Empty;
 
     [JsonPropertyName("TemplateID")]
-    public string? TemplateID { get; set; }
+    public string TemplateID { get; set; } = string.Empty;
 
     [JsonPropertyName("CSR")]
     public string CSR { get; set; } = string.Empty;
@@ -76,7 +51,7 @@ public class CertificateCreateRequestModel
 
     //CertLocation
     [JsonPropertyName("SelectedLocation")]
-    public string SelectedLocation { get; set; } = "IoT Device"; // local, AKV, KMS, ETC
+    public string SelectedLocation { get; set; } = "Generate Locally"; // local, AKV, KMS, ETC
 
     [JsonPropertyName("ResourceID")]
     public string ResourceID { get; set; } = string.Empty;
@@ -88,7 +63,7 @@ public class CertificateCreateRequestModel
     public string AKVName { get; set; } = string.Empty;
 
     [JsonPropertyName("AutoRenew")]
-    public bool AutoRenew { get; set; } = false;
+    public bool AutoRenew { get; set; }
 
     [JsonPropertyName("AutoRenewPercentage")]
     public int AutoRenewPercentage { get; set; } = 80;
@@ -98,4 +73,7 @@ public class CertificateCreateRequestModel
 
     [JsonPropertyName("CertificateTags")]
     public string CertificateTags { get; set; } = string.Empty; //Tags
+
+    [JsonPropertyName("SID")]
+    public string Sid { get; set; } = string.Empty;
 }

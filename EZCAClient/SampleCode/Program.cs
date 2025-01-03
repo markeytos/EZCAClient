@@ -104,11 +104,11 @@ try
     }
     //now we will use the same CSR from the windows Certificate to create a certificate that will return the full chain
     CertificateCreatedResponse? certificateCreatedResponse =
-        await ezcaClient.RequestCertificateWithChainAsync(
+        await ezcaClient.RequestCertificateWithChainV2Async(
             selectedCA,
             csr,
             domain,
-            [domain],
+            [new(domain), new("1.1.1.1", 7)],
             20,
             "testLocation"
         );
