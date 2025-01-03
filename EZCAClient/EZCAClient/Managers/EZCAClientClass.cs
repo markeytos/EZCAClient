@@ -82,6 +82,7 @@ public interface IEZCAClient
     /// <param name="csr">the created CSR</param>
     /// <param name="dcGuid">The domain controller's GUID (only required if SMTP replication is used)</param>
     /// <param name="ekus">The EKUs requested for the Certificate</param>
+    /// <param name="sid">Security ID</param>
     /// <returns>The created <see cref="X509Certificate2"/>.</returns>
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
@@ -92,7 +93,8 @@ public interface IEZCAClient
         string dnsName,
         int certificateValidityDays,
         List<string> ekus,
-        string dcGuid = ""
+        string dcGuid = "",
+        string sid = ""
     );
 
     /// <summary>
@@ -440,7 +442,8 @@ public class EZCAClientClass : IEZCAClient
         string dnsName,
         int certificateValidityDays,
         List<string> ekus,
-        string dcGuid = ""
+        string dcGuid = "",
+        string sid = ""
     )
     {
         if (ca == null)
@@ -486,7 +489,8 @@ public class EZCAClientClass : IEZCAClient
                 certificateValidityDays,
                 EZCAConstants.DomainController,
                 ekus,
-                dcGuid
+                dcGuid,
+                sid
             );
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestDCCertificate",

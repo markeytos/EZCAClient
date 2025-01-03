@@ -15,7 +15,8 @@ public class CertificateCreateRequestModel
         List<string> subjectAltNames,
         string csr,
         int lifetime,
-        string location
+        string location,
+        string sid = ""
     )
     {
         SubjectName = subjectName;
@@ -25,6 +26,7 @@ public class CertificateCreateRequestModel
         CSR = csr;
         ValidityInDays = lifetime;
         SelectedLocation = location;
+        Sid = sid;
     }
 
     public CertificateCreateRequestModel(
@@ -35,7 +37,8 @@ public class CertificateCreateRequestModel
         int lifetime,
         string location,
         List<string> ekus,
-        string certAppID
+        string certAppID,
+        string sid = ""
     )
     {
         SubjectName = subjectName;
@@ -47,6 +50,7 @@ public class CertificateCreateRequestModel
         SelectedLocation = location;
         EKUs = ekus.ToArray();
         CertAppID = certAppID;
+        Sid = sid;
     }
 
     [JsonPropertyName("SubjectName")]
@@ -103,4 +107,7 @@ public class CertificateCreateRequestModel
 
     [JsonPropertyName("CertificateTags")]
     public string CertificateTags { get; set; } = string.Empty; //Tags
+    
+    [JsonPropertyName("Sid")]
+    public string? Sid { get; set; }
 }
