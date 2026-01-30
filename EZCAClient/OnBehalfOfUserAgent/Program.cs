@@ -40,7 +40,7 @@ try
 
     //Get the OnBehalf of Certificate as an Administrator (Note this can only be done with a PKI administrator account)
     //create a 4096 RSA key
-    RSA key = RSA.Create(4096);
+    using RSA key = RSA.Create(4096);
     //
     string subjectName = Guid.NewGuid().ToString();
     string profileFriendlyName = $"OnBehalfOf sample";
