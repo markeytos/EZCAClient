@@ -94,7 +94,7 @@ try
 
     // create a certificate for a Sample User
     // create basic CSR for user (the values will be replaced by the profile so it doesn't have to match)
-    RSA userKey = RSA.Create(4096);
+    using RSA userKey = RSA.Create(4096);
     x500DistinguishedName = new("CN=basicCSR");
     certificateRequest = new(
         x500DistinguishedName,
