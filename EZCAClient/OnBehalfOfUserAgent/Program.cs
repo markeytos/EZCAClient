@@ -140,7 +140,7 @@ try
     X509Certificate2 certificateWithPrivateKey = certificate.CopyWithPrivateKey(key); //Save this new certificate as your new on behalf of certificate
     Console.WriteLine(
         "Renewed OnBehalfOfSelfServiceAgent certificate: "
-            + certificateWithPrivateKey.SubjectName
+            + certificateWithPrivateKey.SubjectName.Name
             + "with expiration date"
             + certificateWithPrivateKey.NotAfter
     );
