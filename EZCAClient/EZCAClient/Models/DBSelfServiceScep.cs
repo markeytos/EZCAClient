@@ -5,16 +5,16 @@ namespace EZCAClient.Models;
 public class DBSelfServiceScep
 {
     [JsonPropertyName("TenantID")]
-    public string TenantID { get; set; } // primary key
+    public string TenantID { get; set; } 
 
     [JsonPropertyName("CaID")]
-    public string CaID { get; set; } // cluster key
+    public string CaID { get; set; } 
 
     [JsonPropertyName("TemplateID")]
-    public string TemplateID { get; set; } // cluster key
+    public string TemplateID { get; set; } 
 
     [JsonPropertyName("ProfileID")]
-    public string ProfileID { get; set; } // cluster key
+    public string ProfileID { get; set; } 
 
     [JsonPropertyName("allUsers")]
     public bool AllUsers { get; set; } = true;
