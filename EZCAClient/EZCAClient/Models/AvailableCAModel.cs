@@ -1,14 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Serialization;
 
 namespace EZCAClient.Models;
 
 public class AvailableCAModel
 {
+    public AvailableCAModel() { }
+
+    public AvailableCAModel(DBSelfServiceScep scepProfile)
+    {
+        CAID = scepProfile.CaID;
+        CAFriendlyName = scepProfile.CaID;
+        TemplateID = scepProfile.TemplateID;
+    }
+
     [JsonPropertyName("CAID")]
     public string? CAID { get; set; }
 

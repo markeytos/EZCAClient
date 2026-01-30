@@ -92,8 +92,12 @@ try
 
         //create Certificate Signing Request
         X500DistinguishedName x500DistinguishedName = new("CN=" + domain);
-        CertificateRequest certificateRequest =
-            new(x500DistinguishedName, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        CertificateRequest certificateRequest = new(
+            x500DistinguishedName,
+            key,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1
+        );
 
         csr = CryptoStaticService.PemEncodeSigningRequest(certificateRequest);
         Console.WriteLine($"Renewing certificate");
