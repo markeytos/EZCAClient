@@ -6,6 +6,11 @@ public static class InputService
 {
     public static DBSelfServiceScep SelectProfile(AvailableSelfServiceModel availableCAs)
     {
+        
+        if (availableCAs.TenantSelfServiceProfiles.Count == 0)
+        {
+            throw new Exception("No available CA profiles found for this tenant.");
+        }
         if (availableCAs.TenantSelfServiceProfiles.Count == 1)
         {
             return availableCAs.TenantSelfServiceProfiles[0];
