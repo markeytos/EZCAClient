@@ -29,7 +29,7 @@ public static class InputService
             {
                 Console.WriteLine(
                     $"Invalid Input: Please enter a value between 0 "
-                        + $"and {availableCAs.TenantSelfServiceProfiles.Count}"
+                        + $"and {availableCAs.TenantSelfServiceProfiles.Count - 1}"
                 );
             }
         }
