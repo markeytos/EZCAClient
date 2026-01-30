@@ -474,6 +474,24 @@ public class EZCAClientClass : IEZCAClient
         throw new HttpRequestException(response.Message);
     }
 
+    public async Task<AvailableSelfServiceModel?> GetSelfServiceCertAvailableProfilesAsync()
+    {
+        await GetTokenAsync();
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/GetSelfServiceCertAvailableProfiles",
+            null,
+            _token.Token,
+            HttpMethod.Get
+        );
+        if (response.Success)
+        {
+            AvailableSelfServiceModel? availableSelfServiceProfiles =
+                JsonSerializer.Deserialize<AvailableSelfServiceModel>(response.Message);
+            return availableSelfServiceProfiles;
+        }
+        throw new HttpRequestException(response.Message);
+    }
+
     public async Task<List<DomainInformationModel>> GetRegisteredDomainsAsync()
     {
         await GetTokenAsync();

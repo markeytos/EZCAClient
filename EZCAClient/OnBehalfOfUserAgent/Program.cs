@@ -126,18 +126,18 @@ try
     //Use the userCertificateWithPrivateKey certificate to authenticate as the user
 
     // Renew your Agent Certificate when it is about to expire
-    key = RSA.Create(4096);
+    using RSA renewKey = RSA.Create(4096);
     x500DistinguishedName = new("CN=" + subjectName);
     certificateRequest = new(
         x500DistinguishedName,
-        key,
+        renewKey,
         HashAlgorithmName.SHA256,
         RSASignaturePadding.Pkcs1
     );
     csr = CryptoStaticService.PemEncodeSigningRequest(certificateRequest);
     string newCert = await ezcaClient.RenewCertificateAsync(adminCertificatePrivateKey, csr);
     X509Certificate2 certificate = CryptoStaticService.ImportCertFromPEMString(newCert);
-    X509Certificate2 certificateWithPrivateKey = certificate.CopyWithPrivateKey(key); //Save this new certificate as your new on behalf of certificate
+    X509Certificate2 certificateWithPrivateKey = certificate.CopyWithPrivateKey(renewKey); //Save this new certificate as your new on behalf of certificate
     Console.WriteLine(
         "Renewed OnBehalfOfSelfServiceAgent certificate: "
             + certificateWithPrivateKey.SubjectName.Name
