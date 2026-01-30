@@ -24,6 +24,33 @@ public class CertificateCreateRequestV2Model
         SelectedLocation = location;
     }
 
+    public CertificateCreateRequestV2Model(
+        AvailableCAModel ca,
+        string subjectName,
+        List<SubjectAltValue> subjectAltNames,
+        string csr,
+        int lifetime,
+        string location,
+        List<string> ekus,
+        string certAppID,
+        string sid
+    )
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ca.CAID);
+        ArgumentException.ThrowIfNullOrWhiteSpace(ca.TemplateID);
+        ArgumentException.ThrowIfNullOrWhiteSpace(subjectName);
+        SubjectName = subjectName;
+        SubjectAltNames = subjectAltNames;
+        CAID = ca.CAID;
+        TemplateID = ca.TemplateID;
+        CSR = csr;
+        ValidityInDays = lifetime;
+        SelectedLocation = location;
+        EKUs = ekus.ToArray();
+        CertAppID = certAppID;
+        Sid = sid;
+    }
+
     [JsonPropertyName("SubjectName")]
     public string SubjectName { get; set; } = string.Empty;
 
@@ -44,7 +71,7 @@ public class CertificateCreateRequestV2Model
 
     [JsonPropertyName("EKUs")]
     public string[] EKUs { get; set; } =
-        [EZCAConstants.ClientAuthenticationEKU, EZCAConstants.ServerAuthenticationEKU];
+    [EZCAConstants.ClientAuthenticationEKU, EZCAConstants.ServerAuthenticationEKU];
 
     [JsonPropertyName("KeyUsages")]
     public string[] KeyUsages { get; set; } = ["Key Encipherment", "Digital Signature"];

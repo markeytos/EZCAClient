@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EZCAClient", "EZCAClient\EZ
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleCode", "SampleCode\SampleCode.csproj", "{FDFD27A1-3BEC-427D-B2CC-1248401B7EE8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnBehalfOfUserAgent", "OnBehalfOfUserAgent\OnBehalfOfUserAgent.csproj", "{FE44B7B4-27C7-4380-BEF1-235D4A9CACD0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{FDFD27A1-3BEC-427D-B2CC-1248401B7EE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FDFD27A1-3BEC-427D-B2CC-1248401B7EE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FDFD27A1-3BEC-427D-B2CC-1248401B7EE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE44B7B4-27C7-4380-BEF1-235D4A9CACD0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE44B7B4-27C7-4380-BEF1-235D4A9CACD0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE44B7B4-27C7-4380-BEF1-235D4A9CACD0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE44B7B4-27C7-4380-BEF1-235D4A9CACD0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -33,7 +33,7 @@ public class HttpClientService : IHttpClientService
             HttpStatusCode.InternalServerError, // 500
             HttpStatusCode.BadGateway, // 502
             HttpStatusCode.ServiceUnavailable, // 503
-            HttpStatusCode.GatewayTimeout // 504
+            HttpStatusCode.GatewayTimeout, // 504
         ];
         _retryPolicy = Policy
             .Handle<HttpRequestException>()
@@ -62,8 +62,8 @@ public class HttpClientService : IHttpClientService
         APIResultModel apiResult = new();
         try
         {
-            HttpResponseMessage responseMessage = await _retryPolicy.ExecuteAsync(
-                async () => await CreateAndSendAsync(url, jsonPayload, token, httpMethod)
+            HttpResponseMessage responseMessage = await _retryPolicy.ExecuteAsync(async () =>
+                await CreateAndSendAsync(url, jsonPayload, token, httpMethod)
             );
             apiResult.Message = await responseMessage.Content.ReadAsStringAsync();
             apiResult.Success = responseMessage.IsSuccessStatusCode;

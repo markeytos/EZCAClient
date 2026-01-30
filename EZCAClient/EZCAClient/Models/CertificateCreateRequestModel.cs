@@ -27,28 +27,6 @@ public class CertificateCreateRequestModel
         SelectedLocation = location;
     }
 
-    public CertificateCreateRequestModel(
-        AvailableCAModel ca,
-        string subjectName,
-        List<string> subjectAltNames,
-        string csr,
-        int lifetime,
-        string location,
-        List<string> ekus,
-        string certAppID
-    )
-    {
-        SubjectName = subjectName;
-        SubjectAltNames = subjectAltNames;
-        CAID = ca.CAID;
-        TemplateID = ca.TemplateID;
-        CSR = csr;
-        ValidityInDays = lifetime;
-        SelectedLocation = location;
-        EKUs = ekus.ToArray();
-        CertAppID = certAppID;
-    }
-
     [JsonPropertyName("SubjectName")]
     public string SubjectName { get; set; } = string.Empty;
 
@@ -69,7 +47,7 @@ public class CertificateCreateRequestModel
 
     [JsonPropertyName("EKUs")]
     public string[] EKUs { get; set; } =
-        [EZCAConstants.ClientAuthenticationEKU, EZCAConstants.ServerAuthenticationEKU];
+    [EZCAConstants.ClientAuthenticationEKU, EZCAConstants.ServerAuthenticationEKU];
 
     [JsonPropertyName("KeyUsages")]
     public string[] KeyUsages { get; set; } = ["Key Encipherment", "Digital Signature"];

@@ -82,6 +82,7 @@ public interface IEZCAClient
     /// <param name="csr">the created CSR</param>
     /// <param name="dcGuid">The domain controller's GUID (only required if SMTP replication is used)</param>
     /// <param name="ekus">The EKUs requested for the Certificate</param>
+    /// <param name="sid">The SID for the domain controller</param>
     /// <returns>The created <see cref="X509Certificate2"/>.</returns>
     /// <exception cref="ApplicationException">Error creating certificate</exception>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
@@ -92,7 +93,8 @@ public interface IEZCAClient
         string dnsName,
         int certificateValidityDays,
         List<string> ekus,
-        string dcGuid = ""
+        string dcGuid = "",
+        string sid = ""
     );
 
     /// <summary>
@@ -153,6 +155,34 @@ public interface IEZCAClient
         List<SubjectAltValue> subjectAlternateNames,
         int certificateValidityDays,
         string location = "Generate Locally"
+    );
+
+    /// <summary>
+    /// Returns a AvailableSelfServiceModel with a list all the Self Service profiles that the authenticated user has access to
+    /// </summary>
+    /// <returns><see cref="AvailableSelfServiceModel"/>A model containing all the Profiles available in the subscriptions the user is a PKI Administrator</returns>
+    Task<AvailableSelfServiceModel?> GetSelfServiceCertAvailableProfilesAsync();
+
+    /// <summary>
+    /// Registers a Subject Name as an on behalf of agent that can request certificates on behalf of users in EZCA
+    /// </summary>
+    /// <param name="scepAgent"></param>
+    /// <returns><see cref="APIResultModel"/>Success True if it registered it correctly otherwise false with the Error the server returned</returns>
+    Task<APIResultModel> RegisterOnBehalfOfSelfServiceAgentAsync(DBSelfServiceScep scepAgent);
+
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="agentCertificate">The certificate for the on behalf of Agent</param>
+    /// <param name="csr">the CSR created for the user</param>
+    /// <param name="selfServiceProfile">The Self service profile you want to use</param>
+    /// <param name="userGuid">the Entra ID user Guid that you want to use</param>
+    /// <returns>PEM encoded Certificate for the user</returns>
+    Task<string> RequestCertificateOnBehalfOfUserAsync(
+        X509Certificate2 agentCertificate,
+        string csr,
+        DBSelfServiceScep selfServiceProfile,
+        string userGuid
     );
     
     /// <summary>
@@ -327,12 +357,22 @@ public class EZCAClientClass : IEZCAClient
 
         //create Certificate Signing Request
         X500DistinguishedName x500DistinguishedName = new("CN=" + domain);
-        CertificateRequest certificateRequest =
-            new(x500DistinguishedName, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        CertificateRequest certificateRequest = new(
+            x500DistinguishedName,
+            key,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1
+        );
         string csr = CryptoStaticService.PemEncodeSigningRequest(certificateRequest);
         List<string> subjectAlternateNames = new() { domain };
-        CertificateCreateRequestModel request =
-            new(ca, "CN=" + domain, subjectAlternateNames, csr, certificateValidityDays, location);
+        CertificateCreateRequestModel request = new(
+            ca,
+            "CN=" + domain,
+            subjectAlternateNames,
+            csr,
+            certificateValidityDays,
+            location
+        );
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestSSLCertificate",
             JsonSerializer.Serialize(request),
@@ -374,8 +414,14 @@ public class EZCAClientClass : IEZCAClient
             throw new ArgumentNullException(nameof(csr));
         }
         await GetTokenAsync();
-        CertificateCreateRequestModel request =
-            new(ca, subjectName, subjectAlternateNames, csr, certificateValidityDays, location);
+        CertificateCreateRequestModel request = new(
+            ca,
+            subjectName,
+            subjectAlternateNames,
+            csr,
+            certificateValidityDays,
+            location
+        );
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestFullSSLCertificate",
             JsonSerializer.Serialize(request),
@@ -407,8 +453,14 @@ public class EZCAClientClass : IEZCAClient
             throw new ArgumentNullException(nameof(csr));
         }
         await GetTokenAsync();
-        CertificateCreateRequestV2Model request =
-            new(ca, subjectName, subjectAlternateNames, csr, certificateValidityDays, location);
+        CertificateCreateRequestV2Model request = new(
+            ca,
+            subjectName,
+            subjectAlternateNames,
+            csr,
+            certificateValidityDays,
+            location
+        );
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestSSLCertificateV2",
             JsonSerializer.Serialize(request),
@@ -418,6 +470,24 @@ public class EZCAClientClass : IEZCAClient
         if (response.Success)
         {
             return JsonSerializer.Deserialize<CertificateCreatedResponse>(response.Message);
+        }
+        throw new HttpRequestException(response.Message);
+    }
+
+    public async Task<AvailableSelfServiceModel?> GetSelfServiceCertAvailableProfilesAsync()
+    {
+        await GetTokenAsync();
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/GetSelfServiceCertAvailableProfiles",
+            null,
+            _token.Token,
+            HttpMethod.Get
+        );
+        if (response.Success)
+        {
+            AvailableSelfServiceModel? availableSelfServiceProfiles =
+                JsonSerializer.Deserialize<AvailableSelfServiceModel>(response.Message);
+            return availableSelfServiceProfiles;
         }
         throw new HttpRequestException(response.Message);
     }
@@ -446,6 +516,60 @@ public class EZCAClientClass : IEZCAClient
         throw new HttpRequestException(response.Message);
     }
 
+    public async Task<APIResultModel> RegisterOnBehalfOfSelfServiceAgentAsync(
+        DBSelfServiceScep scepAgent
+    )
+    {
+        if (string.IsNullOrWhiteSpace(scepAgent.BehalfOfAgents))
+        {
+            throw new ArgumentNullException(nameof(scepAgent.BehalfOfAgents));
+        }
+
+        if (string.IsNullOrWhiteSpace(scepAgent.CaID))
+        {
+            throw new ArgumentNullException(nameof(scepAgent.CaID));
+        }
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/RegisterNewBehalfOfSelfServiceAgent",
+            JsonSerializer.Serialize(scepAgent),
+            _token.Token,
+            HttpMethod.Post
+        );
+        return response;
+    }
+
+    public async Task<string> RequestCertificateOnBehalfOfUserAsync(
+        X509Certificate2 agentCertificate,
+        string csr,
+        DBSelfServiceScep selfServiceProfile,
+        string userGuid
+    )
+    {
+        TokenModel token = CreateRSAJWTToken(agentCertificate);
+        APIResultModel result = await _httpClient.CallGenericAsync(
+            _url.TrimEnd('/') + "/api/Certificates/RequestSelfServiceCertificateOnBehalfOf",
+            JsonSerializer.Serialize(
+                new SelfServiceCertBehalfOf(
+                    csr,
+                    $"EZRADIUS-SelfService {agentCertificate.SubjectName.Name}",
+                    selfServiceProfile.CaID,
+                    selfServiceProfile.TemplateID,
+                    selfServiceProfile.ProfileID,
+                    selfServiceProfile.ProfileID,
+                    agentCertificate.ExportCertificatePem(),
+                    userGuid
+                )
+            ),
+            token.AccessToken,
+            HttpMethod.Post
+        );
+        if (!result.Success)
+        {
+            throw new HttpRequestException(result.Message);
+        }
+        return result.Message;
+    }
+    
     public async Task<List<SSLCertInfoV2>> GetMyCertificatesAsync()
     {
         List<SSLCertInfoV2> allCerts = new();
@@ -544,8 +668,14 @@ public class EZCAClientClass : IEZCAClient
             subjectName = "CN=" + subjectName;
         }
         await GetTokenAsync();
-        CertificateCreateRequestModel request =
-            new(ca, subjectName, new(), csr, certificateValidityDays, EZCAConstants.IMPORTCSR);
+        CertificateCreateRequestModel request = new(
+            ca,
+            subjectName,
+            new(),
+            csr,
+            certificateValidityDays,
+            EZCAConstants.IMPORTCSR
+        );
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestSSLCertificate",
             JsonSerializer.Serialize(request),
@@ -594,8 +724,14 @@ public class EZCAClientClass : IEZCAClient
             owners ??= new() { requester };
             certificateAdministrators ??= new() { requester };
         }
-        NewDomainRegistrationRequest request =
-            new(ca, domain, owners, certificateAdministrators, requestersOnly, notificationEmails);
+        NewDomainRegistrationRequest request = new(
+            ca,
+            domain,
+            owners,
+            certificateAdministrators,
+            requestersOnly,
+            notificationEmails
+        );
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RegisterNewDomain",
             JsonSerializer.Serialize(request),
@@ -619,7 +755,8 @@ public class EZCAClientClass : IEZCAClient
         string dnsName,
         int certificateValidityDays,
         List<string> ekus,
-        string dcGuid = ""
+        string dcGuid = "",
+        string sid = ""
     )
     {
         if (ca == null)
@@ -656,19 +793,19 @@ public class EZCAClientClass : IEZCAClient
             subjectName = "CN=" + subjectName;
         }
         await GetTokenAsync();
-        CertificateCreateRequestModel request =
-            new(
-                ca,
-                subjectName,
-                [dnsName],
-                csr,
-                certificateValidityDays,
-                EZCAConstants.DomainController,
-                ekus,
-                dcGuid
-            );
+        CertificateCreateRequestV2Model request = new(
+            ca,
+            subjectName,
+            [new(dnsName)],
+            csr,
+            certificateValidityDays,
+            EZCAConstants.DomainController,
+            ekus,
+            dcGuid,
+            sid
+        );
         APIResultModel response = await _httpClient.CallGenericAsync(
-            $"{_url}/api/CA/RequestDCCertificate",
+            $"{_url}/api/CA/RequestDCCertificateV2",
             JsonSerializer.Serialize(request),
             _token.Token,
             HttpMethod.Post
@@ -703,8 +840,9 @@ public class EZCAClientClass : IEZCAClient
 
     private async Task GetTokenAsync()
     {
-        TokenRequestContext authContext =
-            new(new[] { "https://management.core.windows.net/.default" });
+        TokenRequestContext authContext = new(
+            new[] { "https://management.core.windows.net/.default" }
+        );
         if (_azureTokenCredential == null)
         {
             throw new ArgumentNullException(nameof(_azureTokenCredential));
@@ -727,7 +865,7 @@ public class EZCAClientClass : IEZCAClient
         var headers = new Dictionary<string, object>
         {
             { "typ", "JWT" },
-            { "x5t", clientCertificate.Thumbprint }
+            { "x5t", clientCertificate.Thumbprint },
         };
         TokenModel token = new();
         var payload = new Dictionary<string, object>()
@@ -735,7 +873,7 @@ public class EZCAClientClass : IEZCAClient
             { "aud", $"https://ezca.io" },
             { "jti", Guid.NewGuid().ToString() },
             { "nbf", (ulong)token.NotBefore.ToUnixTimeSeconds() },
-            { "exp", (ulong)token.ExpiresOn.ToUnixTimeSeconds() }
+            { "exp", (ulong)token.ExpiresOn.ToUnixTimeSeconds() },
         };
         token.AccessToken = JWT.Encode(
             payload,
