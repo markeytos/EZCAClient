@@ -18,6 +18,7 @@ IEZCAClient ezcaClient = new EZCAClientClass(new HttpClient());
 
 try
 {
+    
     // Now we are going to get the available CAs
     Console.WriteLine("Getting Available CAs..");
     AvailableCAModel[]? availableCAs = await ezcaClient.GetAvailableCAsAsync();
@@ -26,6 +27,9 @@ try
         Console.WriteLine("Could not find any available CAs in EZCA");
         return;
     }
+   
+    Console.WriteLine("Getting Domains");
+    List<DomainInformationModel> domains =  await ezcaClient.GetRegisteredDomainsAsync();
     AvailableCAModel selectedCA = InputService.SelectCA(availableCAs);
     string domain = InputService.GetDomainName();
 
@@ -60,7 +64,7 @@ try
 
     //Now I will create a CSR using the Windows Store and use that csr to request a certificate
     //(NOTE: comment this code if running on Mac or Linux)
-    List<string> subjectAltNames = new List<string> { domain };
+    List<string> subjectAltNames = [domain];
     CX509CertificateRequestPkcs10 certRequest = WindowsCertStoreService.CreateCSR(
         "CN=" + domain,
         subjectAltNames,
@@ -117,6 +121,21 @@ try
             "testLocation"
         );
     Console.WriteLine("Finished certificate creation sample :)");
+    //Get Page 0 of the certificates
+    List<SSLCertInfoV2> pageOCertificates = await ezcaClient.GetMyCertificatesPaginatedAsync(0);
+    //Get All the certificates
+    List<SSLCertInfoV2> allCertificates = await ezcaClient.GetMyCertificatesAsync();
+    Console.WriteLine("Getting Audit Logs");
+    //Get the audit logs
+    AuditRequestModel auditRequestModel = new(); //Initialize the audit request model with default values (90 days)
+    List<SSLCertAuditLogModel> auditLogs = new();
+    do
+    {
+        auditLogs.AddRange(await ezcaClient.GetCertificateAuditLogsAsync(auditRequestModel));
+        auditRequestModel.PageNumber++;
+    }
+    while (auditLogs.Count/auditRequestModel.PageNumber == auditRequestModel.MaxNumberOfRecords);
+    
     Console.WriteLine("Press any key to exit");
     Console.ReadLine();
 }
