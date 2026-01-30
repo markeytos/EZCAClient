@@ -154,6 +154,35 @@ public interface IEZCAClient
         int certificateValidityDays,
         string location = "Generate Locally"
     );
+    
+    /// <summary>
+    /// Gets the registered domains for the current user
+    /// </summary>
+    /// <returns><see cref="DomainInformationModel"/>List DomainInformationModel Containing all the domains</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<List<DomainInformationModel>> GetRegisteredDomainsAsync();
+    
+    /// <summary>
+    /// Gets the registered certificates for the current user (It Calls GetMyCertificatesPaginatedAsync until it gets all the pages)
+    /// </summary>
+    /// <returns><see cref="SSLCertInfoV2"/>List SSLCertInfoV2 Containing all the certificates</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<List<SSLCertInfoV2>> GetMyCertificatesAsync();
+    
+    /// <summary>
+    /// Gets the registered certificates for the current user
+    /// </summary>
+    /// <returns><see cref="SSLCertInfoV2"/>List SSLCertInfoV2 Containing all the certificates</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<List<SSLCertInfoV2>> GetMyCertificatesPaginatedAsync(int pageNumber);
+
+    /// <summary>
+    /// Gets the audit logs for the current user (if the user is an admin it will get all the logs)
+    /// </summary>
+    /// <param name="auditRequest">Audit Request with date range and page number</param>
+    /// <returns><see cref="SSLCertAuditLogModel"/>List SSLCertAuditLogModel Containing all the certificates logs</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<List<SSLCertAuditLogModel>> GetCertificateAuditLogsAsync(AuditRequestModel auditRequest);
 }
 
 public class EZCAClientClass : IEZCAClient
@@ -389,6 +418,103 @@ public class EZCAClientClass : IEZCAClient
         if (response.Success)
         {
             return JsonSerializer.Deserialize<CertificateCreatedResponse>(response.Message);
+        }
+        throw new HttpRequestException(response.Message);
+    }
+
+    public async Task<List<DomainInformationModel>> GetRegisteredDomainsAsync()
+    {
+        await GetTokenAsync();
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/GetMyDomains",
+            string.Empty,
+            _token.Token,
+            HttpMethod.Get
+        );
+        if (response.Success)
+        {
+            response = JsonSerializer.Deserialize<APIResultModel>(
+                response.Message
+            ) ?? new(false, "Error reading server response");
+        }
+        if (response.Success)
+        {
+            List<DomainInformationModel> domains =
+                JsonSerializer.Deserialize<List<DomainInformationModel>>(response.Message) ?? new();
+            return domains;
+        }
+        throw new HttpRequestException(response.Message);
+    }
+
+    public async Task<List<SSLCertInfoV2>> GetMyCertificatesAsync()
+    {
+        List<SSLCertInfoV2> allCerts = new();
+        int pageNumber = 0;
+        while (true)
+        {
+            List<SSLCertInfoV2> certs = await GetMyCertificatesPaginatedAsync(pageNumber);
+            if (certs.Count == 0)
+            {
+                break;
+            }
+            allCerts.AddRange(certs);
+            pageNumber++;
+        }
+        return allCerts;
+    }
+
+    public async Task<List<SSLCertInfoV2>> GetMyCertificatesPaginatedAsync(int pageNumber)
+    {
+        if (pageNumber < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pageNumber));
+        }
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/GetMyCertificatesV2Paginated?pageNumber="
+                                                   + pageNumber,
+            string.Empty,
+            _token.Token,
+            HttpMethod.Get
+        );
+        if (response.Success)
+        {
+            return JsonSerializer.Deserialize<List<SSLCertInfoV2>>(
+                response.Message
+            ) ?? new();
+        }
+        throw new HttpRequestException(response.Message);
+    }
+    
+    public async Task<List<SSLCertAuditLogModel>> GetCertificateAuditLogsAsync(AuditRequestModel auditRequest)
+    {
+        ArgumentNullException.ThrowIfNull(auditRequest);
+        if (auditRequest.DateFrom == null || auditRequest.DateTo == null)
+        {
+            throw new ArgumentException("DateFrom and DateTo cannot be null");
+        }
+        if (auditRequest.DateFrom > auditRequest.DateTo)
+        {
+            throw new ArgumentException("DateFrom cannot be greater than DateTo");
+        }
+        if (auditRequest.MaxNumberOfRecords < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(auditRequest.MaxNumberOfRecords));
+        }
+        if (auditRequest.PageNumber < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(auditRequest.PageNumber));
+        }
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/Audit/GetCertLogs",
+            JsonSerializer.Serialize(auditRequest),
+            _token.Token,
+            HttpMethod.Post
+        );
+        if (response.Success)
+        {
+            return JsonSerializer.Deserialize<List<SSLCertAuditLogModel>>(
+                response.Message
+            ) ?? new();
         }
         throw new HttpRequestException(response.Message);
     }
