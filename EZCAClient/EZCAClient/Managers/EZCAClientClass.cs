@@ -37,6 +37,14 @@ public interface IEZCAClient
     /// <returns>An <see cref="AvailableCAModel"/> array.</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<AvailableCAModel[]?> GetAvailableCAsAsync();
+    
+    /// <summary>
+    /// Gets the available CAs for EZRadius from EZCA
+    /// </summary>
+    /// <returns>An <see cref="AvailableCAModel"/> array.</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    /// <exception cref="JsonException">Error deserializing server response</exception>
+    Task<AvailableCAModel[]?> GetAvailableCAsForEZRadiusAsync();
 
     /// <summary>
     /// Creates a new SSL certificate given a domain.
@@ -321,6 +329,27 @@ public class EZCAClientClass : IEZCAClient
         AvailableCAModel[]? availableCAs;
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/GetAvailableSSLCAs",
+            null,
+            _token.Token,
+            HttpMethod.Get
+        );
+        if (response.Success)
+        {
+            availableCAs = JsonSerializer.Deserialize<AvailableCAModel[]>(response.Message);
+        }
+        else
+        {
+            throw new HttpRequestException(response.Message);
+        }
+        return availableCAs;
+    }
+
+    public async Task<AvailableCAModel[]?> GetAvailableCAsForEZRadiusAsync()
+    {
+        await GetTokenAsync();
+        AvailableCAModel[]? availableCAs;
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            $"{_url}/api/CA/GetAdminCAsCompatibleWithRadius",
             null,
             _token.Token,
             HttpMethod.Get
