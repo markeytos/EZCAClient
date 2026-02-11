@@ -43,6 +43,7 @@ public interface IEZCAClient
     /// </summary>
     /// <returns>An <see cref="AvailableCAModel"/> array.</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
+    /// <exception cref="JsonException">Error deserializing server response</exception>
     Task<AvailableCAModel[]?> GetAvailableCAsForEZRadiusAsync();
 
     /// <summary>
