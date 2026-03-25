@@ -15,7 +15,7 @@ Console.WriteLine("Welcome to the EZCAClient Sample");
 // (such as a private instance or our local offerings such as eu.ezca.io or au.ezca.io) you can pass the base URL
 // as a parameter to the EZCAClientClass constructor.
 // Example: EZCAClient ezcaClient = new EZCAClientClass(new HttpClient(), logger, "https://eu.ezca.io/");
-IEZCAClient ezcaClient = new EZCAClientClass(new HttpClient(), baseUrl: "https://localhost:5001/", azureTokenCredential:new DefaultAzureCredential());
+IEZCAClient ezcaClient = new EZCAClientClass(new HttpClient(),  azureTokenCredential:new DefaultAzureCredential());
 
 try
 {
