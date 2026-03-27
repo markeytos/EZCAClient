@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using Azure.Identity;
 using CERTENROLLLib;
 using EZCAClient.Managers;
 using EZCAClient.Models;
@@ -14,7 +15,7 @@ Console.WriteLine("Welcome to the EZCAClient Sample");
 // (such as a private instance or our local offerings such as eu.ezca.io or au.ezca.io) you can pass the base URL
 // as a parameter to the EZCAClientClass constructor.
 // Example: EZCAClient ezcaClient = new EZCAClientClass(new HttpClient(), logger, "https://eu.ezca.io/");
-IEZCAClient ezcaClient = new EZCAClientClass(new HttpClient());
+IEZCAClient ezcaClient = new EZCAClientClass(new HttpClient(),  azureTokenCredential:new DefaultAzureCredential());
 
 try
 {
@@ -30,6 +31,7 @@ try
    
     Console.WriteLine("Getting Domains");
     List<DomainInformationModel> domains =  await ezcaClient.GetRegisteredDomainsAsync();
+    Console.WriteLine($"Found {domains.Count} domains in the EZCA");
     AvailableCAModel selectedCA = InputService.SelectCA(availableCAs);
     string domain = InputService.GetDomainName();
 
@@ -71,7 +73,7 @@ try
         4096
     );
     string csr = certRequest.RawData[EncodingType.XCN_CRYPT_STRING_BASE64REQUESTHEADER];
-    Console.WriteLine($"Getting Windows Certificate");
+    Console.WriteLine("Getting Windows Certificate");
     X509Certificate2? windowsCert = await ezcaClient.RequestCertificateAsync(
         selectedCA,
         csr,
@@ -80,7 +82,7 @@ try
     );
     if (windowsCert != null)
     {
-        Console.WriteLine($"Installing Windows Certificate");
+        Console.WriteLine("Installing Windows Certificate");
         WindowsCertStoreService.InstallCertificate(
             CryptoStaticService.ExportToPEM(windowsCert),
             certRequest
@@ -104,7 +106,7 @@ try
         );
 
         csr = CryptoStaticService.PemEncodeSigningRequest(certificateRequest);
-        Console.WriteLine($"Renewing certificate");
+        Console.WriteLine("Renewing certificate");
         string newCert = await ezcaClient.RenewCertificateAsync(firstCert, csr);
         X509Certificate2 certificate = CryptoStaticService.ImportCertFromPEMString(newCert);
         X509Certificate2 certificateWithPrivateKey = certificate.CopyWithPrivateKey(key);

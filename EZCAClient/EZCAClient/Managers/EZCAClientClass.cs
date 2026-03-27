@@ -301,24 +301,19 @@ public class EZCAClientClass : IEZCAClient
         {
             throw new ArgumentNullException(nameof(csr));
         }
+        
         CertRenewReqModel certReq = new(csr, (cert.NotAfter - cert.NotBefore).Days);
+        CertificateAuthenticationPayloadModel<CertRenewReqModel> payload = new(cert, certReq);
         TokenModel token = CreateRSAJWTToken(cert);
         APIResultModel result = await _httpClient.CallGenericAsync(
-            _url + "/api/Certificates/RenewCertificate",
-            JsonSerializer.Serialize(certReq),
+            _url + "/api/Certificates/RenewCertificateV2",
+            JsonSerializer.Serialize(payload),
             token.AccessToken,
             HttpMethod.Post
         );
         if (result.Success)
         {
-            APIResultModel serverResponse =
-                JsonSerializer.Deserialize<APIResultModel>(result.Message)
-                ?? new(false, "error deserializing response: " + result.Message);
-            if (serverResponse.Success)
-            {
-                return serverResponse.Message;
-            }
-            throw new Exception(serverResponse.Message);
+            return result.Message;
         }
         throw new Exception(result.Message);
     }
