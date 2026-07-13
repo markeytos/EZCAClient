@@ -24,6 +24,18 @@ public interface IEZCAClient
     Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr);
 
     /// <summary>
+    /// Renews a certificate and returns the renewed leaf together with its CA chain (root + issuing CA).
+    /// </summary>
+    /// <param name="cert">Certificate to renew. Must contain the RSA private key, used for authentication.</param>
+    /// <param name="csr">CSR of the renewed certificate.</param>
+    /// <returns><see cref="CertificateCreatedResponse"/> containing the renewed certificate PEM and its CA chain PEMs.</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<CertificateCreatedResponse?> RenewCertificateWithChainAsync(
+        X509Certificate2 cert,
+        string csr
+    );
+
+    /// <summary>
     /// Revoke Certificate in EZCA
     /// </summary>
     /// <param name="cert">Certificate to Revoke </param>
@@ -316,6 +328,36 @@ public class EZCAClientClass : IEZCAClient
             return result.Message;
         }
         throw new Exception(result.Message);
+    }
+
+    public async Task<CertificateCreatedResponse?> RenewCertificateWithChainAsync(
+        X509Certificate2 cert,
+        string csr
+    )
+    {
+        if (cert == null)
+        {
+            throw new ArgumentNullException(nameof(cert));
+        }
+        if (string.IsNullOrWhiteSpace(csr))
+        {
+            throw new ArgumentNullException(nameof(csr));
+        }
+
+        CertRenewReqModel certReq = new(csr, (cert.NotAfter - cert.NotBefore).Days);
+        CertificateAuthenticationPayloadModel<CertRenewReqModel> payload = new(cert, certReq);
+        TokenModel token = CreateRSAJWTToken(cert);
+        APIResultModel result = await _httpClient.CallGenericAsync(
+            _url + "/api/Certificates/RenewCertificateV3",
+            JsonSerializer.Serialize(payload),
+            token.AccessToken,
+            HttpMethod.Post
+        );
+        if (result.Success)
+        {
+            return JsonSerializer.Deserialize<CertificateCreatedResponse>(result.Message);
+        }
+        throw new HttpRequestException(result.Message);
     }
 
     public async Task<AvailableCAModel[]?> GetAvailableCAsAsync()
