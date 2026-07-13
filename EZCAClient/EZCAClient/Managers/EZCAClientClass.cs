@@ -233,6 +233,17 @@ public interface IEZCAClient
     /// <returns><see cref="SSLCertAuditLogModel"/>List SSLCertAuditLogModel Containing all the certificates logs</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<List<SSLCertAuditLogModel>> GetCertificateAuditLogsAsync(AuditRequestModel auditRequest);
+
+    /// <summary>
+    /// Gets the local worker certificates (active, retired and pending) of a single CA identified by its CAID,
+    /// scoped to the tenant of the authenticating certificate. Used to pick up new intermediate/root
+    /// certificates produced by a CA rotation.
+    /// </summary>
+    /// <param name="authCert">Certificate used to authenticate (cert-JWT). Must contain the RSA private key. Its tenant scopes the lookup.</param>
+    /// <param name="caID">The CAID of the CA to fetch the local certificates for.</param>
+    /// <returns><see cref="CADetailsResponse"/> containing the CA's local worker certificates, or null if not found.</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<CADetailsResponse?> GetCALocalCertificatesAsync(X509Certificate2 authCert, string caID);
 }
 
 public class EZCAClientClass : IEZCAClient
@@ -400,6 +411,35 @@ public class EZCAClientClass : IEZCAClient
             throw new HttpRequestException(response.Message);
         }
         return availableCAs;
+    }
+
+    public async Task<CADetailsResponse?> GetCALocalCertificatesAsync(
+        X509Certificate2 authCert,
+        string caID
+    )
+    {
+        if (authCert == null)
+        {
+            throw new ArgumentNullException(nameof(authCert));
+        }
+        if (string.IsNullOrWhiteSpace(caID))
+        {
+            throw new ArgumentNullException(nameof(caID));
+        }
+
+        CertificateAuthenticationPayloadModel<string> payload = new(authCert, caID);
+        TokenModel token = CreateRSAJWTToken(authCert);
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            _url + "/api/Certificates/GetCALocalCertificates",
+            JsonSerializer.Serialize(payload),
+            token.AccessToken,
+            HttpMethod.Post
+        );
+        if (!response.Success)
+        {
+            throw new HttpRequestException(response.Message);
+        }
+        return JsonSerializer.Deserialize<CADetailsResponse>(response.Message);
     }
 
     public async Task<X509Certificate2?> RequestCertificateAsync(
