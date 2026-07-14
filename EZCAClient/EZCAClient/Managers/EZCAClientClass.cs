@@ -24,6 +24,18 @@ public interface IEZCAClient
     Task<string> RenewCertificateAsync(X509Certificate2 cert, string csr);
 
     /// <summary>
+    /// Renews a certificate and returns the renewed leaf together with its CA chain (root + issuing CA).
+    /// </summary>
+    /// <param name="cert">Certificate to renew. Must contain the RSA private key, used for authentication.</param>
+    /// <param name="csr">CSR of the renewed certificate.</param>
+    /// <returns><see cref="CertificateCreatedResponse"/> containing the renewed certificate PEM and its CA chain PEMs.</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<CertificateCreatedResponse?> RenewCertificateWithChainAsync(
+        X509Certificate2 cert,
+        string csr
+    );
+
+    /// <summary>
     /// Revoke Certificate in EZCA
     /// </summary>
     /// <param name="cert">Certificate to Revoke </param>
@@ -221,6 +233,17 @@ public interface IEZCAClient
     /// <returns><see cref="SSLCertAuditLogModel"/>List SSLCertAuditLogModel Containing all the certificates logs</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<List<SSLCertAuditLogModel>> GetCertificateAuditLogsAsync(AuditRequestModel auditRequest);
+
+    /// <summary>
+    /// Gets the local worker certificates (active, retired and pending) of a single CA identified by its CAID,
+    /// scoped to the tenant of the authenticating certificate. Used to pick up new intermediate/root
+    /// certificates produced by a CA rotation.
+    /// </summary>
+    /// <param name="authCert">Certificate used to authenticate (cert-JWT). Must contain the RSA private key. Its tenant scopes the lookup.</param>
+    /// <param name="caID">The CAID of the CA to fetch the local certificates for.</param>
+    /// <returns><see cref="CADetailsResponse"/> containing the CA's local worker certificates, or null if not found.</returns>
+    /// <exception cref="HttpRequestException">Error contacting server</exception>
+    Task<CADetailsResponse?> GetCALocalCertificatesAsync(X509Certificate2 authCert, string caID);
 }
 
 public class EZCAClientClass : IEZCAClient
@@ -318,6 +341,36 @@ public class EZCAClientClass : IEZCAClient
         throw new Exception(result.Message);
     }
 
+    public async Task<CertificateCreatedResponse?> RenewCertificateWithChainAsync(
+        X509Certificate2 cert,
+        string csr
+    )
+    {
+        if (cert == null)
+        {
+            throw new ArgumentNullException(nameof(cert));
+        }
+        if (string.IsNullOrWhiteSpace(csr))
+        {
+            throw new ArgumentNullException(nameof(csr));
+        }
+
+        CertRenewReqModel certReq = new(csr, (cert.NotAfter - cert.NotBefore).Days);
+        CertificateAuthenticationPayloadModel<CertRenewReqModel> payload = new(cert, certReq);
+        TokenModel token = CreateRSAJWTToken(cert);
+        APIResultModel result = await _httpClient.CallGenericAsync(
+            _url + "/api/Certificates/RenewCertificateV3",
+            JsonSerializer.Serialize(payload),
+            token.AccessToken,
+            HttpMethod.Post
+        );
+        if (result.Success)
+        {
+            return JsonSerializer.Deserialize<CertificateCreatedResponse>(result.Message);
+        }
+        throw new HttpRequestException(result.Message);
+    }
+
     public async Task<AvailableCAModel[]?> GetAvailableCAsAsync()
     {
         await GetTokenAsync();
@@ -358,6 +411,35 @@ public class EZCAClientClass : IEZCAClient
             throw new HttpRequestException(response.Message);
         }
         return availableCAs;
+    }
+
+    public async Task<CADetailsResponse?> GetCALocalCertificatesAsync(
+        X509Certificate2 authCert,
+        string caID
+    )
+    {
+        if (authCert == null)
+        {
+            throw new ArgumentNullException(nameof(authCert));
+        }
+        if (string.IsNullOrWhiteSpace(caID))
+        {
+            throw new ArgumentNullException(nameof(caID));
+        }
+
+        CertificateAuthenticationPayloadModel<string> payload = new(authCert, caID);
+        TokenModel token = CreateRSAJWTToken(authCert);
+        APIResultModel response = await _httpClient.CallGenericAsync(
+            _url + "/api/Certificates/GetCALocalCertificates",
+            JsonSerializer.Serialize(payload),
+            token.AccessToken,
+            HttpMethod.Post
+        );
+        if (!response.Success)
+        {
+            throw new HttpRequestException(response.Message);
+        }
+        return JsonSerializer.Deserialize<CADetailsResponse>(response.Message);
     }
 
     public async Task<X509Certificate2?> RequestCertificateAsync(
