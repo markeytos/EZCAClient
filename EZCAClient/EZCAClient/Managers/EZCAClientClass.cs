@@ -49,7 +49,7 @@ public interface IEZCAClient
     /// <returns>An <see cref="AvailableCAModel"/> array.</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<AvailableCAModel[]?> GetAvailableCAsAsync();
-    
+
     /// <summary>
     /// Gets the available CAs for EZRadius from EZCA
     /// </summary>
@@ -204,21 +204,21 @@ public interface IEZCAClient
         DBSelfServiceScep selfServiceProfile,
         string userGuid
     );
-    
+
     /// <summary>
     /// Gets the registered domains for the current user
     /// </summary>
     /// <returns><see cref="DomainInformationModel"/>List DomainInformationModel Containing all the domains</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<List<DomainInformationModel>> GetRegisteredDomainsAsync();
-    
+
     /// <summary>
     /// Gets the registered certificates for the current user (It Calls GetMyCertificatesPaginatedAsync until it gets all the pages)
     /// </summary>
     /// <returns><see cref="SSLCertInfoV2"/>List SSLCertInfoV2 Containing all the certificates</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<List<SSLCertInfoV2>> GetMyCertificatesAsync();
-    
+
     /// <summary>
     /// Gets the registered certificates for the current user
     /// </summary>
@@ -250,6 +250,7 @@ public class EZCAClientClass : IEZCAClient
 {
     private readonly HttpClientService _httpClient;
     private readonly string _url;
+    private readonly string _armScope = "https://management.core.windows.net/.default";
     private AccessToken _token;
     private readonly TokenCredential? _azureTokenCredential;
 
@@ -268,7 +269,10 @@ public class EZCAClientClass : IEZCAClient
         {
             throw new ArgumentNullException(nameof(httpClient));
         }
-
+        if (baseUrl.Trim(' ', '/').EndsWith("ezca.us"))
+        {
+            _armScope = "https://management.usgovcloudapi.net/.default";
+        }
         if (azureTokenCredential == null)
         {
             _azureTokenCredential = new DefaultAzureCredential();
@@ -324,7 +328,7 @@ public class EZCAClientClass : IEZCAClient
         {
             throw new ArgumentNullException(nameof(csr));
         }
-        
+
         CertRenewReqModel certReq = new(csr, (cert.NotAfter - cert.NotBefore).Days);
         CertificateAuthenticationPayloadModel<CertRenewReqModel> payload = new(cert, certReq);
         TokenModel token = CreateRSAJWTToken(cert);
@@ -609,9 +613,9 @@ public class EZCAClientClass : IEZCAClient
         );
         if (response.Success)
         {
-            response = JsonSerializer.Deserialize<APIResultModel>(
-                response.Message
-            ) ?? new(false, "Error reading server response");
+            response =
+                JsonSerializer.Deserialize<APIResultModel>(response.Message)
+                ?? new(false, "Error reading server response");
         }
         if (response.Success)
         {
@@ -675,7 +679,7 @@ public class EZCAClientClass : IEZCAClient
         }
         return result.Message;
     }
-    
+
     public async Task<List<SSLCertInfoV2>> GetMyCertificatesAsync()
     {
         List<SSLCertInfoV2> allCerts = new();
@@ -700,22 +704,21 @@ public class EZCAClientClass : IEZCAClient
             throw new ArgumentOutOfRangeException(nameof(pageNumber));
         }
         APIResultModel response = await _httpClient.CallGenericAsync(
-            $"{_url}/api/CA/GetMyCertificatesV2Paginated?pageNumber="
-                                                   + pageNumber,
+            $"{_url}/api/CA/GetMyCertificatesV2Paginated?pageNumber=" + pageNumber,
             string.Empty,
             _token.Token,
             HttpMethod.Get
         );
         if (response.Success)
         {
-            return JsonSerializer.Deserialize<List<SSLCertInfoV2>>(
-                response.Message
-            ) ?? new();
+            return JsonSerializer.Deserialize<List<SSLCertInfoV2>>(response.Message) ?? new();
         }
         throw new HttpRequestException(response.Message);
     }
-    
-    public async Task<List<SSLCertAuditLogModel>> GetCertificateAuditLogsAsync(AuditRequestModel auditRequest)
+
+    public async Task<List<SSLCertAuditLogModel>> GetCertificateAuditLogsAsync(
+        AuditRequestModel auditRequest
+    )
     {
         ArgumentNullException.ThrowIfNull(auditRequest);
         if (auditRequest.DateFrom == null || auditRequest.DateTo == null)
@@ -742,9 +745,8 @@ public class EZCAClientClass : IEZCAClient
         );
         if (response.Success)
         {
-            return JsonSerializer.Deserialize<List<SSLCertAuditLogModel>>(
-                response.Message
-            ) ?? new();
+            return JsonSerializer.Deserialize<List<SSLCertAuditLogModel>>(response.Message)
+                ?? new();
         }
         throw new HttpRequestException(response.Message);
     }
@@ -946,9 +948,7 @@ public class EZCAClientClass : IEZCAClient
 
     private async Task GetTokenAsync()
     {
-        TokenRequestContext authContext = new(
-            new[] { "https://management.core.windows.net/.default" }
-        );
+        TokenRequestContext authContext = new([_armScope]);
         if (_azureTokenCredential == null)
         {
             throw new ArgumentNullException(nameof(_azureTokenCredential));
