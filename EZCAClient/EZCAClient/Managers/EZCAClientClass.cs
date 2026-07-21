@@ -269,13 +269,18 @@ public class EZCAClientClass : IEZCAClient
         {
             throw new ArgumentNullException(nameof(httpClient));
         }
-        if (baseUrl.Trim(' ', '/').EndsWith("ezca.us"))
+        bool isGovCloud = baseUrl.Trim(' ', '/').EndsWith("ezca.us");
+        Uri authorityHost = AzureAuthorityHosts.AzurePublicCloud;
+        if (isGovCloud)
         {
-            _armScope = "https://management.usgovcloudapi.net/.default";
+            _armScope = "https://management.core.usgovcloudapi.net/.default";
+            authorityHost = AzureAuthorityHosts.AzureGovernment;
         }
         if (azureTokenCredential == null)
         {
-            _azureTokenCredential = new DefaultAzureCredential();
+            _azureTokenCredential = new DefaultAzureCredential(
+                new DefaultAzureCredentialOptions { AuthorityHost = authorityHost }
+            );
         }
         else
         {
