@@ -1,0 +1,91 @@
+name: Build, Sign & Publish NuGet
+
+# Publishes the EZCAClient package to NuGet.org.
+#
+# Trigger:
+#   - Manually via the "Run workflow" button (workflow_dispatch), with an
+#     optional dry_run that skips the push to NuGet.org.
+#
+# Required repository secrets:
+#   SIGNING_CERTIFICATE_BASE64  - Base64-encoded PFX (code-signing certificate).
+#                                 Create with:  base64 -w0 cert.pfx   (Linux)
+#                                 or:           [Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx"))  (PowerShell)
+#   NUGET_API_KEY               - API key from https://www.nuget.org/account/apikeys with push scope.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build & sign but do NOT push to NuGet.org"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    env:
+      PROJECT: EZCAClient/EZCAClient/EZCAClient.csproj
+      CONFIGURATION: Release
+      TIMESTAMPER: http://timestamp.digicert.com
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore "$PROJECT"
+
+      - name: Build
+        run: dotnet build "$PROJECT" -c "$CONFIGURATION" --no-restore
+
+      - name: Pack
+        run: dotnet pack "$PROJECT" -c "$CONFIGURATION" --no-build --output "${{ runner.temp }}/nupkg"
+
+      - name: Import signing certificate
+        run: |
+          echo "$SIGNING_CERTIFICATE_BASE64" | base64 --decode > "${{ runner.temp }}/cert.pfx"
+        env:
+          SIGNING_CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE_BASE64 }}
+
+      - name: Sign package
+        run: |
+          package=$(ls "${{ runner.temp }}"/nupkg/EZCAClient*.nupkg | head -n 1)
+          echo "Signing $package"
+          dotnet nuget sign "$package" \
+            --certificate-path "${{ runner.temp }}/cert.pfx" \
+            --timestamper "$TIMESTAMPER"
+
+      - name: Verify signature
+        run: |
+          package=$(ls "${{ runner.temp }}"/nupkg/EZCAClient*.nupkg | head -n 1)
+          dotnet nuget verify --all "$package"
+
+      - name: Publish to NuGet.org
+        if: ${{ inputs.dry_run == false }}
+        run: |
+          package=$(ls "${{ runner.temp }}"/nupkg/EZCAClient*.nupkg | head -n 1)
+          dotnet nuget push "$package" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: ${{ runner.temp }}/nupkg/*.nupkg
+
+      - name: Clean up certificate
+        if: always()
+        run: rm -f "${{ runner.temp }}/cert.pfx"
