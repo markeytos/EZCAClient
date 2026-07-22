@@ -10,7 +10,7 @@ name: Build, Sign & Publish NuGet
 #   SIGNING_CERTIFICATE_BASE64  - Base64-encoded PFX (code-signing certificate).
 #                                 Create with:  base64 -w0 cert.pfx   (Linux)
 #                                 or:           [Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx"))  (PowerShell)
-#   NUGET_API_KEY               - API key from https://www.nuget.org/account/apikeys with push scope.
+#   NUGET_USER               - Username for NuGet.org (usually an email address associated with the account).
 
 on:
   workflow_dispatch:
@@ -25,6 +25,8 @@ permissions:
 
 jobs:
   publish:
+    permissions:
+      id-token: write 
     runs-on: ubuntu-latest
 
     env:
@@ -68,17 +70,19 @@ jobs:
         run: |
           package=$(ls "${{ runner.temp }}"/nupkg/EZCAClient*.nupkg | head -n 1)
           dotnet nuget verify --all "$package"
-
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
       - name: Publish to NuGet.org
         if: ${{ inputs.dry_run == false }}
         run: |
           package=$(ls "${{ runner.temp }}"/nupkg/EZCAClient*.nupkg | head -n 1)
           dotnet nuget push "$package" \
-            --api-key "$NUGET_API_KEY" \
+            --api-key ${{steps.login.outputs.NUGET_API_KEY}} \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
