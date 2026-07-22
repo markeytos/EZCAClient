@@ -12,7 +12,7 @@
     <PackageIcon>KeytosK.png</PackageIcon>
     <RepositoryUrl>https://github.com/markeytos/EZCAClient</RepositoryUrl>
     <PackageTags>X509Certificate;Certificate Authority;EZCA;Keytos;</PackageTags>
-    <PackageReleaseNotes>Add RenewCertificateWithChainAsync to renew certificates with the full CA chain, and GetCALocalCertificatesAsync to fetch a CA's local worker certificates (active/retired/pending) by CAID.</PackageReleaseNotes>
+    <PackageReleaseNotes>GetCALocalCertificatesAsync now fetches a CA's public local worker certificates by tenant and CAID via an unauthenticated endpoint.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>

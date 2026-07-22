@@ -235,15 +235,16 @@ public interface IEZCAClient
     Task<List<SSLCertAuditLogModel>> GetCertificateAuditLogsAsync(AuditRequestModel auditRequest);
 
     /// <summary>
-    /// Gets the local worker certificates (active, retired and pending) of a single CA identified by its CAID,
-    /// scoped to the tenant of the authenticating certificate. Used to pick up new intermediate/root
-    /// certificates produced by a CA rotation.
+    /// Gets the public local worker certificates (active, retired and pending) of a single CA identified
+    /// by its tenant and CAID. Used to pick up new intermediate/root certificates produced by a CA rotation.
+    /// This endpoint is unauthenticated; only public certificate material is returned.
     /// </summary>
-    /// <param name="authCert">Certificate used to authenticate (cert-JWT). Must contain the RSA private key. Its tenant scopes the lookup.</param>
+    /// <param name="tenantID">The tenant that owns the CA.</param>
     /// <param name="caID">The CAID of the CA to fetch the local certificates for.</param>
     /// <returns><see cref="CADetailsResponse"/> containing the CA's local worker certificates, or null if not found.</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
-    Task<CADetailsResponse?> GetCALocalCertificatesAsync(X509Certificate2 authCert, string caID);
+    /// <remarks>Calls <c>GET /api/Certificates/GetCALocalCertificates/{tenantID}/{caID}</c>.</remarks>
+    Task<CADetailsResponse?> GetCALocalCertificatesAsync(string tenantID, string caID);
 }
 
 public class EZCAClientClass : IEZCAClient
@@ -422,27 +423,22 @@ public class EZCAClientClass : IEZCAClient
         return availableCAs;
     }
 
-    public async Task<CADetailsResponse?> GetCALocalCertificatesAsync(
-        X509Certificate2 authCert,
-        string caID
-    )
+    public async Task<CADetailsResponse?> GetCALocalCertificatesAsync(string tenantID, string caID)
     {
-        if (authCert == null)
+        if (string.IsNullOrWhiteSpace(tenantID))
         {
-            throw new ArgumentNullException(nameof(authCert));
+            throw new ArgumentNullException(nameof(tenantID));
         }
         if (string.IsNullOrWhiteSpace(caID))
         {
             throw new ArgumentNullException(nameof(caID));
         }
 
-        CertificateAuthenticationPayloadModel<string> payload = new(authCert, caID);
-        TokenModel token = CreateRSAJWTToken(authCert);
         APIResultModel response = await _httpClient.CallGenericAsync(
-            _url + "/api/Certificates/GetCALocalCertificates",
-            JsonSerializer.Serialize(payload),
-            token.AccessToken,
-            HttpMethod.Post
+            $"{_url}/api/Certificates/GetCALocalCertificates/{tenantID}/{caID}",
+            null,
+            null,
+            HttpMethod.Get
         );
         if (!response.Success)
         {
