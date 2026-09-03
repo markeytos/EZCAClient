@@ -166,6 +166,7 @@ public interface IEZCAClient
     /// <param name="subjectAlternateNames">list of subject alternate names for subject alt type use 2 for DNS 7 for IP address</param>
     /// <param name="certificateValidityDays">number of days that the certificate is valid for</param>
     /// <param name="location">Text field for where is this certificate is being stored</param>
+    /// <param name="ekus">the extended key usage OIDs to request for the certificate, leave null to request client and server authentication</param>
     /// <returns><see cref="CertificateCreatedResponse"/> Containing the PEM strings of the CA chain as well as the issued certificate</returns>
     /// <exception cref="HttpRequestException">Error contacting server</exception>
     Task<CertificateCreatedResponse?> RequestCertificateWithChainV2Async(
@@ -174,29 +175,8 @@ public interface IEZCAClient
         string subjectName,
         List<SubjectAltValue> subjectAlternateNames,
         int certificateValidityDays,
-        string location = "Generate Locally"
-    );
-
-    /// <summary>
-    /// Creates a certificate from a CSR with the given extended key usages and returns the full chain of the certificate
-    /// </summary>
-    /// <param name="ca">Issuing CA</param>
-    /// <param name="csr">Certificate Signing Request for the certificate</param>
-    /// <param name="subjectName">certificate subject name</param>
-    /// <param name="subjectAlternateNames">list of subject alternate names for subject alt type use 2 for DNS 7 for IP address</param>
-    /// <param name="certificateValidityDays">number of days that the certificate is valid for</param>
-    /// <param name="ekus">the extended key usage OIDs to request for the certificate</param>
-    /// <param name="location">Text field for where is this certificate is being stored</param>
-    /// <returns><see cref="CertificateCreatedResponse"/> Containing the PEM strings of the CA chain as well as the issued certificate</returns>
-    /// <exception cref="HttpRequestException">Error contacting server</exception>
-    Task<CertificateCreatedResponse?> RequestCertificateWithChainV2Async(
-        AvailableCAModel ca,
-        string csr,
-        string subjectName,
-        List<SubjectAltValue> subjectAlternateNames,
-        int certificateValidityDays,
-        List<string> ekus,
-        string location = "Generate Locally"
+        string location = "Generate Locally",
+        List<string>? ekus = null
     );
 
     /// <summary>
@@ -574,7 +554,8 @@ public class EZCAClientClass : IEZCAClient
         string subjectName,
         List<SubjectAltValue> subjectAlternateNames,
         int certificateValidityDays,
-        string location = "Generate Locally"
+        string location = "Generate Locally",
+        List<string>? ekus = null
     )
     {
         if (ca == null)
@@ -586,61 +567,32 @@ public class EZCAClientClass : IEZCAClient
             throw new ArgumentNullException(nameof(csr));
         }
         await GetTokenAsync();
-        CertificateCreateRequestV2Model request = new(
-            ca,
-            subjectName,
-            subjectAlternateNames,
-            csr,
-            certificateValidityDays,
-            location
-        );
-        APIResultModel response = await _httpClient.CallGenericAsync(
-            $"{_url}/api/CA/RequestSSLCertificateV2",
-            JsonSerializer.Serialize(request),
-            _token.Token,
-            HttpMethod.Post
-        );
-        if (response.Success)
-        {
-            return JsonSerializer.Deserialize<CertificateCreatedResponse>(response.Message);
-        }
-        throw new HttpRequestException(response.Message);
-    }
-
-    public async Task<CertificateCreatedResponse?> RequestCertificateWithChainV2Async(
-        AvailableCAModel ca,
-        string csr,
-        string subjectName,
-        List<SubjectAltValue> subjectAlternateNames,
-        int certificateValidityDays,
-        List<string> ekus,
-        string location = "Generate Locally"
-    )
-    {
-        if (ca == null)
-        {
-            throw new ArgumentNullException(nameof(ca));
-        }
-        if (string.IsNullOrWhiteSpace(csr))
-        {
-            throw new ArgumentNullException(nameof(csr));
-        }
+        CertificateCreateRequestV2Model request;
         if (ekus == null)
         {
-            throw new ArgumentNullException(nameof(ekus));
+            request = new(
+                ca,
+                subjectName,
+                subjectAlternateNames,
+                csr,
+                certificateValidityDays,
+                location
+            );
         }
-        await GetTokenAsync();
-        CertificateCreateRequestV2Model request = new(
-            ca,
-            subjectName,
-            subjectAlternateNames,
-            csr,
-            certificateValidityDays,
-            location,
-            ekus,
-            string.Empty,
-            string.Empty
-        );
+        else
+        {
+            request = new(
+                ca,
+                subjectName,
+                subjectAlternateNames,
+                csr,
+                certificateValidityDays,
+                location,
+                ekus,
+                string.Empty,
+                string.Empty
+            );
+        }
         APIResultModel response = await _httpClient.CallGenericAsync(
             $"{_url}/api/CA/RequestSSLCertificateV2",
             JsonSerializer.Serialize(request),
